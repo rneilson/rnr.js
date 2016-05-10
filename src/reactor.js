@@ -45,7 +45,7 @@ export class Reactor {
 			// Add this to parent's child set
 			this[_parent] = newval[_addchild](this);
 			// Get initial value from parent
-			initval = newval.value;
+			initval = newval.get();
 		}
 		else {
 			// If newval is standalone, no parent
@@ -70,45 +70,25 @@ export class Reactor {
 
 	}
 
-	get value() {
+	get () {
 		return this[_value];
 	}
 
-	set value(val) {
+	set (val) {
 		var oldval = this[_value];
 		var newval = (this[_then] !== null) ? this[_then](val, oldval) : val;
 
 		// Only triggers cascade if value actually changed
 		if ((newval !== oldval) && (newval !== undefined)) {
 			this[_value] = newval;
-			this[_children].forEach(child => {child.value = newval});
+			this[_children].forEach(child => child.set(newval));
 		}
+		// Set and pass along the raw value instead if newval is undefined
 		else {
-			// Set and pass along the raw value instead if newval is undefined
 			this[_value] = val;
-			this[_children].forEach(child => {child.value = val});
+			this[_children].forEach(child => child.set(val));
 		}
-	}
-
-	get parent() {
-		return this[_parent];
-	}
-
-	// Leaving setter in for now
-	// Might be easier for collection reactors later on if whole collection is changed and compared
-	set parent(par) {
-		if (this[_parent] !== par) {
-			if (this[_parent] !== null) {
-				// Remove from parent's child set
-				this.detach();
-			}
-			if (par instanceof Reactor) {
-				// Set new parent, add this to new parent's child set, and recalculate value
-				this[_parent] = par[_addchild](this);
-				// Will invoke setter and thus cascade if appropriate
-				this.value = par.value;
-			}
-		}
+		return this[_value];
 	}
 
 	// Returns new reactor with given thenfunc and/or finalfunc
@@ -127,13 +107,34 @@ export class Reactor {
 		return this[_cancel](final, false);
 	}
 
+	// Sets new parent (or null) and recalculates value if req'd
+	// Returns new parent
+	attach (par) {
+		if (this[_parent] !== par) {
+			if (this[_parent] !== null) {
+				// Remove from parent's child set
+				this.detach();
+			}
+			if (par instanceof Reactor) {
+				// Set new parent, add this to new parent's child set, and recalculate value
+				this[_parent] = par[_addchild](this);
+				// Will invoke setter and thus cascade if appropriate
+				this.set(par.get());
+			}
+		}
+		return this[_parent];
+	}
+
 	// Removes from parent's child set and nulls parent
-	detach (skipdelete) {
-		if ((!skipdelete) && (this[_parent] !== null)) {
+	// Returns old parent
+	detach (skipdel) {
+		if ((!skipdel) && (this[_parent] !== null)) {
 			this[_parent][_delchild](this);
 		}
 		// Clear parent regardless
+		var par = this[_parent];
 		this[_parent] = null;
+		return par;
 	}
 
 	/*
@@ -157,22 +158,23 @@ export class Reactor {
 	}
 
 	// Internal portion of cancel()
-	[_cancel] (final, skipdelete) {
+	[_cancel] (final, skipdel) {
 		// If finalfunc is set, will be called with (final, value) before
 		// passing result downward
 		var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
+		// Reset finalval to val if _finally() returned undefined
 		finalval = (finalval !== undefined) ? finalval : final;
 
-		// Cascade to children (set skipdelete to true regardless of passed arg)
+		// Cascade to children (set skipdel to true regardless of passed arg)
 		this[_children].forEach(child => child[_cancel](finalval, true));
 
 		// Clear children
 		this[_children].clear();
 
 		// Clear parent
-		// If skipdelete is true, won't call delchild() on parent
+		// If skipdel is true, won't call delchild() on parent
 		// (so parent can clean its own child set after cascading)
-		this.detach(skipdelete);
+		this.detach(skipdel);
 
 		// Clear value, thenfunc, finalfunc
 		this[_value] = null;
