@@ -6,6 +6,7 @@ const _parent = Symbol('_parent');
 const _children = Symbol('_children');
 const _then = Symbol('_then');
 const _finally = Symbol('_finally');
+const _active = Symbol('_active');
 
 // Symbols for private methods
 const _cancel = Symbol('_cancel');
@@ -68,6 +69,8 @@ export class Reactor {
 			this[_value] = initval;
 		}
 
+		// Set active
+		this[_active] = true;
 	}
 
 	get () {
@@ -75,30 +78,39 @@ export class Reactor {
 	}
 
 	set (val) {
-		var oldval = this[_value];
-		var newval = (this[_then] !== null) ? this[_then](val, oldval) : val;
+		if (this[_active]) {
+			var oldval = this[_value];
+			var newval = (this[_then] !== null) ? this[_then](val, oldval) : val;
 
-		// Only triggers cascade if value actually changed
-		if ((newval !== oldval) && (newval !== undefined)) {
-			this[_value] = newval;
-			this[_children].forEach(child => child.set(newval));
+			// Only triggers cascade if value actually changed
+			if ((newval !== oldval) && (newval !== undefined)) {
+				this[_value] = newval;
+				this[_children].forEach(child => child.set(newval));
+			}
+			// Set and pass along the raw value instead if newval is undefined
+			else {
+				this[_value] = val;
+				this[_children].forEach(child => child.set(val));
+			}
+			return this[_value];
 		}
-		// Set and pass along the raw value instead if newval is undefined
-		else {
-			this[_value] = val;
-			this[_children].forEach(child => child.set(val));
-		}
-		return this[_value];
+		throw new Error("Cannot set() inactive");
 	}
 
 	// Returns new reactor with given thenfunc and/or finalfunc
 	then (thenfunc, finalfunc) {
-		return new Reactor(this, thenfunc, finalfunc);
+		if (this[_active]) {
+			return new Reactor(this, thenfunc, finalfunc);
+		}
+		throw new Error("Cannot cascade from inactive");
 	}
 
 	// Returns new reactor with no thenfunc and given finalfunc
 	finally (finalfunc) {
-		return new Reactor(this, null, finalfunc);
+		if (this[_active]) {
+			return new Reactor(this, null, finalfunc);
+		}
+		throw new Error("Cannot cascade from inactive");
 	}
 
 	// Cancels reactor and cascades
@@ -110,19 +122,22 @@ export class Reactor {
 	// Sets new parent (or null) and recalculates value if req'd
 	// Returns new parent
 	attach (par) {
-		if (this[_parent] !== par) {
-			if (this[_parent] !== null) {
-				// Remove from parent's child set
-				this.detach();
+		if (this[_active]) {
+			if (this[_parent] !== par) {
+				if (this[_parent] !== null) {
+					// Remove from parent's child set
+					this.detach();
+				}
+				if (par instanceof Reactor) {
+					// Set new parent, add this to new parent's child set, and recalculate value
+					this[_parent] = par[_addchild](this);
+					// Will invoke setter and thus cascade if appropriate
+					this.set(par.get());
+				}
 			}
-			if (par instanceof Reactor) {
-				// Set new parent, add this to new parent's child set, and recalculate value
-				this[_parent] = par[_addchild](this);
-				// Will invoke setter and thus cascade if appropriate
-				this.set(par.get());
-			}
+			return this[_parent];
 		}
-		return this[_parent];
+		throw new Error("Cannot attach() inactive");
 	}
 
 	// Removes from parent's child set and nulls parent
@@ -159,30 +174,34 @@ export class Reactor {
 
 	// Internal portion of cancel()
 	[_cancel] (final, skipdel) {
-		// If finalfunc is set, will be called with (final, value) before
-		// passing result downward
-		var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
-		// Reset finalval to val if _finally() returned undefined
-		finalval = (finalval !== undefined) ? finalval : final;
+		if (this[_active]) {
+			// If finalfunc is set, will be called with (final, value) before
+			// passing result downward
+			var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
+			// Reset finalval to val if _finally() returned undefined
+			finalval = (finalval !== undefined) ? finalval : final;
 
-		// Cascade to children (set skipdel to true regardless of passed arg)
-		this[_children].forEach(child => child[_cancel](finalval, true));
+			// Cascade to children (set skipdel to true regardless of passed arg)
+			this[_children].forEach(child => child[_cancel](finalval, true));
 
-		// Clear children
-		this[_children].clear();
+			// Clear children
+			this[_children].clear();
 
-		// Clear parent
-		// If skipdel is true, won't call delchild() on parent
-		// (so parent can clean its own child set after cascading)
-		this.detach(skipdel);
+			// Clear parent
+			// If skipdel is true, won't call delchild() on parent
+			// (so parent can clean its own child set after cascading)
+			this.detach(skipdel);
 
-		// Clear value, thenfunc, finalfunc
-		this[_value] = null;
-		this[_then] = null;
-		this[_finally] = null;
+			// Clear value, thenfunc, finalfunc, and mark inactive
+			this[_value] = undefined;
+			this[_then] = null;
+			this[_finally] = null;
+			this[_active] = false;
 
-		// Done
-		return finalval;
+			// Done
+			return finalval;
+		}
+		return undefined;
 	}
 }
 
