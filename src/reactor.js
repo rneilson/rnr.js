@@ -21,7 +21,7 @@ export class Reactor {
 		if ((thenfunc === undefined) || (thenfunc === null)) {
 			this[_then] = null;
 		}
-		else if (typeof thenfunc === 'function') {
+		else if (isCallable(thenfunc)) {
 			this[_then] = thenfunc;
 		}
 		else {
@@ -31,7 +31,7 @@ export class Reactor {
 		if ((finalfunc === undefined) || (finalfunc === null)) {
 			this[_finally] = null;
 		}
-		else if (typeof finalfunc === 'function') {
+		else if (isCallable(finalfunc)) {
 			this[_finally] = finalfunc;
 		}
 		else {
@@ -46,7 +46,7 @@ export class Reactor {
 			// Add this to parent's child set
 			this[_parent] = newval[_addchild](this);
 			// Get initial value from parent
-			initval = newval.get();
+			initval = newval.value;
 		}
 		else {
 			// If newval is standalone, no parent
@@ -77,7 +77,15 @@ export class Reactor {
 		return this[_active];
 	}
 
-	get () {
+	get parent () {
+		return this[_parent];
+	}
+
+	get children () {
+		return Array.from(this[_children]);
+	}
+
+	get value () {
 		return this[_value];
 	}
 
@@ -89,12 +97,16 @@ export class Reactor {
 			// Only triggers cascade if value actually changed
 			if ((newval !== oldval) && (newval !== undefined)) {
 				this[_value] = newval;
-				this[_children].forEach(child => child.set(newval));
+				for (var child of this[_children]) {
+					child.set(newval);
+				}
 			}
 			// Set and pass along the raw value instead if newval is undefined
 			else {
 				this[_value] = val;
-				this[_children].forEach(child => child.set(val));
+				for (var child of this[_children]) {
+					child.set(val);
+				}
 			}
 			return this[_value];
 		}
@@ -136,7 +148,7 @@ export class Reactor {
 					// Set new parent, add this to new parent's child set, and recalculate value
 					this[_parent] = par[_addchild](this);
 					// Will invoke setter and thus cascade if appropriate
-					this.set(par.get());
+					this.set(par.value);
 				}
 			}
 			return this[_parent];
@@ -186,7 +198,9 @@ export class Reactor {
 			finalval = (finalval !== undefined) ? finalval : final;
 
 			// Cascade to children (set skipdel to true regardless of passed arg)
-			this[_children].forEach(child => child[_cancel](finalval, true));
+			for (var child of this[_children]) {
+				child[_cancel](finalval, true);
+			}
 
 			// Clear children
 			this[_children].clear();
@@ -213,3 +227,7 @@ export function cr (initval) {
 	return new Reactor(initval);
 }
 
+// TODO: move to utils
+function isCallable (fn) {
+	return typeof fn === 'function' || Object.prototype.toString.call(fn) === '[object Function]';
+}
