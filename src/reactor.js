@@ -73,6 +73,10 @@ export class Reactor {
 		this[_active] = true;
 	}
 
+	get active () {
+		return this[_active];
+	}
+
 	get () {
 		return this[_value];
 	}
@@ -94,7 +98,7 @@ export class Reactor {
 			}
 			return this[_value];
 		}
-		throw new Error("Cannot set() inactive");
+		throw new Error("Cannot set() cancelled");
 	}
 
 	// Returns new reactor with given thenfunc and/or finalfunc
@@ -102,7 +106,7 @@ export class Reactor {
 		if (this[_active]) {
 			return new Reactor(this, thenfunc, finalfunc);
 		}
-		throw new Error("Cannot cascade from inactive");
+		throw new Error("Cannot cascade from cancelled");
 	}
 
 	// Returns new reactor with no thenfunc and given finalfunc
@@ -110,7 +114,7 @@ export class Reactor {
 		if (this[_active]) {
 			return new Reactor(this, null, finalfunc);
 		}
-		throw new Error("Cannot cascade from inactive");
+		throw new Error("Cannot cascade from cancelled");
 	}
 
 	// Cancels reactor and cascades
@@ -137,7 +141,7 @@ export class Reactor {
 			}
 			return this[_parent];
 		}
-		throw new Error("Cannot attach() inactive");
+		throw new Error("Cannot attach() cancelled");
 	}
 
 	// Removes from parent's child set and nulls parent
@@ -192,7 +196,7 @@ export class Reactor {
 			// (so parent can clean its own child set after cascading)
 			this.detach(skipdel);
 
-			// Clear value, thenfunc, finalfunc, and mark inactive
+			// Clear value, thenfunc, finalfunc, and mark cancelled
 			this[_value] = undefined;
 			this[_then] = null;
 			this[_finally] = null;
