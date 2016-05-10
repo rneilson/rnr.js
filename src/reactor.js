@@ -1,5 +1,7 @@
 /* Cascading-reactor defs & helpers */
 
+import { isCallable } from './utils.js';
+
 // Symbols for private properties
 const _value = Symbol('_value');
 const _parent = Symbol('_parent');
@@ -227,7 +229,3 @@ export function cr (initval) {
 	return new Reactor(initval);
 }
 
-// TODO: move to utils
-function isCallable (fn) {
-	return typeof fn === 'function' || Object.prototype.toString.call(fn) === '[object Function]';
-}
