@@ -151,24 +151,24 @@ export class Reactor {
 	}
 
 	// Sets new parent (or null) and recalculates value if req'd
-	// Returns new parent
+	// Returns new parent, or self if new value given instead
 	attach (par) {
 		if (this[_done]) {
 			throw new Error("Cannot attach() cancelled");
 		}
-		if (this[_parent] !== par) {
-			if (this[_parent] !== null) {
-				// Remove from parent's child set
-				this.detach();
-			}
-			if (par instanceof Reactor) {
-				// Set new parent, add this to new parent's child set, and recalculate value
-				this[_parent] = par[_addchild](this);
-				// Will invoke setter and thus cascade if appropriate
-				this.set(par.value);
-			}
+		if (this[_parent] !== null) {
+			this.detach();
 		}
-		return this[_parent];
+		if (par instanceof Reactor) {
+			// Set new parent, add this to new parent's child set, and recalculate value
+			this[_parent] = par[_addchild](this);
+			// Will invoke setter and thus cascade if appropriate
+			this.set(par.value);
+			// Return new parent for chaining
+			return par;
+		}
+		// This is now top of tree, set value and cascade as necessary
+		return this.set(par);
 	}
 
 	// Removes from parent's child set and nulls parent
