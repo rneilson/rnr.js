@@ -16,28 +16,28 @@ const _addchild = Symbol('_addchild');
 const _delchild = Symbol('_delchild');
 
 export class Reactor {
-	constructor(newval, thenfunc, finalfunc) {
-		// Params thenfunc and finalfunc are optional
+	constructor(newval, thenfn, finalfn) {
+		// Params thenfn and finalfn are optional
 		// Must be functions if given, however
 
-		if ((thenfunc === undefined) || (thenfunc === null)) {
+		if ((thenfn === undefined) || (thenfn === null)) {
 			this[_then] = null;
 		}
-		else if (isCallable(thenfunc)) {
-			this[_then] = thenfunc;
+		else if (isCallable(thenfn)) {
+			this[_then] = thenfn;
 		}
 		else {
-			throw new Error("Param 'thenfunc' must be a function");
+			throw new Error("Param 'thenfn' must be a function");
 		}
 
-		if ((finalfunc === undefined) || (finalfunc === null)) {
+		if ((finalfn === undefined) || (finalfn === null)) {
 			this[_finally] = null;
 		}
-		else if (isCallable(finalfunc)) {
-			this[_finally] = finalfunc;
+		else if (isCallable(finalfn)) {
+			this[_finally] = finalfn;
 		}
 		else {
-			throw new Error("Param 'finalfunc' must be a function");
+			throw new Error("Param 'finalfn' must be a function");
 		}
 
 		// Initial value
@@ -60,7 +60,7 @@ export class Reactor {
 		// Start with empty child list
 		this[_children] = new Set();
 
-		// Function thenfunc run once if present
+		// Function thenfn run once if present
 		// and given/parent value isn't undefined
 		if ((initval !== undefined) && (this[_then] !== null)) {
 			this[_value] = this[_then](initval);
@@ -94,20 +94,16 @@ export class Reactor {
 	set (val) {
 		if (this[_active]) {
 			var oldval = this[_value];
-			var newval = (this[_then] !== null) ? this[_then](val, oldval) : val;
+			// Only run thenfn if val not undefined
+			var newval = ((val !== undefined) && (this[_then] !== null)) ? this[_then](val, oldval) : val;
+			// Set and pass along the raw value instead if newval is undefined
+			newval = (newval !== undefined) ? newval : val;
 
 			// Only triggers cascade if value actually changed
-			if ((newval !== oldval) && (newval !== undefined)) {
+			if (newval !== oldval) {
 				this[_value] = newval;
 				for (var child of this[_children]) {
 					child.set(newval);
-				}
-			}
-			// Set and pass along the raw value instead if newval is undefined
-			else {
-				this[_value] = val;
-				for (var child of this[_children]) {
-					child.set(val);
 				}
 			}
 			return this[_value];
@@ -115,18 +111,18 @@ export class Reactor {
 		throw new Error("Cannot set() cancelled");
 	}
 
-	// Returns new reactor with given thenfunc and/or finalfunc
-	then (thenfunc, finalfunc) {
+	// Returns new reactor with given thenfn and/or finalfn
+	then (thenfn, finalfn) {
 		if (this[_active]) {
-			return new Reactor(this, thenfunc, finalfunc);
+			return new Reactor(this, thenfn, finalfn);
 		}
 		throw new Error("Cannot cascade from cancelled");
 	}
 
-	// Returns new reactor with no thenfunc and given finalfunc
-	finally (finalfunc) {
+	// Returns new reactor with no thenfn and given finalfn
+	finally (finalfn) {
 		if (this[_active]) {
-			return new Reactor(this, null, finalfunc);
+			return new Reactor(this, null, finalfn);
 		}
 		throw new Error("Cannot cascade from cancelled");
 	}
@@ -193,7 +189,7 @@ export class Reactor {
 	// Internal portion of cancel()
 	[_cancel] (final, skipdel) {
 		if (this[_active]) {
-			// If finalfunc is set, will be called with (final, value) before
+			// If finalfn is set, will be called with (final, value) before
 			// passing result downward
 			var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
 			// Reset finalval to val if _finally() returned undefined
@@ -212,7 +208,7 @@ export class Reactor {
 			// (so parent can clean its own child set after cascading)
 			this.detach(skipdel);
 
-			// Clear value, thenfunc, finalfunc, and mark cancelled
+			// Clear value, thenfn, finalfn, and mark cancelled
 			this[_value] = undefined;
 			this[_then] = null;
 			this[_finally] = null;
@@ -221,11 +217,10 @@ export class Reactor {
 			// Done
 			return finalval;
 		}
-		return undefined;
 	}
 }
 
-export function cr (initval) {
-	return new Reactor(initval);
+export function cr (initval, thenfn, finalfn) {
+	return new Reactor(initval, thenfn, finalfn);
 }
 
