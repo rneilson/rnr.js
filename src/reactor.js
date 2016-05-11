@@ -8,7 +8,7 @@ const _parent = Symbol('_parent');
 const _children = Symbol('_children');
 const _then = Symbol('_then');
 const _finally = Symbol('_finally');
-const _active = Symbol('_active');
+const _done = Symbol('_done');
 
 // Symbols for private methods
 const _cancel = Symbol('_cancel');
@@ -72,11 +72,11 @@ export class Reactor {
 		}
 
 		// Set active
-		this[_active] = true;
+		this[_done] = false;
 	}
 
-	get active () {
-		return this[_active];
+	get done () {
+		return this[_done];
 	}
 
 	get parent () {
@@ -92,39 +92,39 @@ export class Reactor {
 	}
 
 	set (val) {
-		if (this[_active]) {
-			var oldval = this[_value];
-			// Only run thenfn if val not undefined
-			var newval = ((val !== undefined) && (this[_then] !== null)) ? this[_then](val, oldval) : val;
-			// Set and pass along the raw value instead if newval is undefined
-			newval = (newval !== undefined) ? newval : val;
-
-			// Only triggers cascade if value actually changed
-			if (newval !== oldval) {
-				this[_value] = newval;
-				for (var child of this[_children]) {
-					child.set(newval);
-				}
-			}
-			return this[_value];
+		if (this[_done]) {
+			throw new Error("Cannot set() cancelled");
 		}
-		throw new Error("Cannot set() cancelled");
+		var oldval = this[_value];
+		// Only run thenfn if val not undefined
+		var newval = ((val !== undefined) && (this[_then] !== null)) ? this[_then](val, oldval) : val;
+		// Set and pass along the raw value instead if newval is undefined
+		newval = (newval !== undefined) ? newval : val;
+
+		// Only triggers cascade if value actually changed
+		if (newval !== oldval) {
+			this[_value] = newval;
+			for (var child of this[_children]) {
+				child.set(newval);
+			}
+		}
+		return this[_value];
 	}
 
 	// Returns new reactor with given thenfn and/or finalfn
 	then (thenfn, finalfn) {
-		if (this[_active]) {
-			return new Reactor(this, thenfn, finalfn);
+		if (this[_done]) {
+			throw new Error("Cannot cascade from cancelled");
 		}
-		throw new Error("Cannot cascade from cancelled");
+		return new Reactor(this, thenfn, finalfn);
 	}
 
 	// Returns new reactor with no thenfn and given finalfn
 	finally (finalfn) {
-		if (this[_active]) {
-			return new Reactor(this, null, finalfn);
+		if (this[_done]) {
+			throw new Error("Cannot cascade from cancelled");
 		}
-		throw new Error("Cannot cascade from cancelled");
+		return new Reactor(this, null, finalfn);
 	}
 
 	// Cancels reactor and cascades
@@ -136,22 +136,22 @@ export class Reactor {
 	// Sets new parent (or null) and recalculates value if req'd
 	// Returns new parent
 	attach (par) {
-		if (this[_active]) {
-			if (this[_parent] !== par) {
-				if (this[_parent] !== null) {
-					// Remove from parent's child set
-					this.detach();
-				}
-				if (par instanceof Reactor) {
-					// Set new parent, add this to new parent's child set, and recalculate value
-					this[_parent] = par[_addchild](this);
-					// Will invoke setter and thus cascade if appropriate
-					this.set(par.value);
-				}
-			}
-			return this[_parent];
+		if (this[_done]) {
+			throw new Error("Cannot attach() cancelled");
 		}
-		throw new Error("Cannot attach() cancelled");
+		if (this[_parent] !== par) {
+			if (this[_parent] !== null) {
+				// Remove from parent's child set
+				this.detach();
+			}
+			if (par instanceof Reactor) {
+				// Set new parent, add this to new parent's child set, and recalculate value
+				this[_parent] = par[_addchild](this);
+				// Will invoke setter and thus cascade if appropriate
+				this.set(par.value);
+			}
+		}
+		return this[_parent];
 	}
 
 	// Removes from parent's child set and nulls parent
@@ -188,7 +188,10 @@ export class Reactor {
 
 	// Internal portion of cancel()
 	[_cancel] (final, skipdel) {
-		if (this[_active]) {
+		if (this[_done]) {
+			return this[_value];
+		}
+		else {
 			// If finalfn is set, will be called with (final, value) before
 			// passing result downward
 			var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
@@ -208,11 +211,11 @@ export class Reactor {
 			// (so parent can clean its own child set after cascading)
 			this.detach(skipdel);
 
-			// Clear value, thenfn, finalfn, and mark cancelled
-			this[_value] = undefined;
+			// Set value to final, clear thenfn/finalfn, and mark cancelled
+			this[_value] = finalval;
 			this[_then] = null;
 			this[_finally] = null;
-			this[_active] = false;
+			this[_done] = true;
 
 			// Done
 			return finalval;
