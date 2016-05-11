@@ -101,14 +101,27 @@ export class Reactor {
 		// Set and pass along the raw value instead if newval is undefined
 		newval = (newval !== undefined) ? newval : val;
 
+		// Autocancel
+		var cancelled = false;
+
 		// Only triggers cascade if value actually changed
 		if (newval !== oldval) {
 			this[_value] = newval;
 			for (var child of this[_children]) {
-				child.set(newval);
+				if (child.done) {
+					this[_children].delete(child);
+					cancelled = true;
+				}
+				else {
+					child.set(newval);
+				}
 			}
 		}
-		return this[_value];
+		// Cancel self if all children cancelled
+		if ((cancelled) && (this[_children].size === 0)) {
+			return this[_cancel](newval, false);
+		}
+		return this;
 	}
 
 	// Returns new reactor with given thenfn and/or finalfn
@@ -131,6 +144,10 @@ export class Reactor {
 	// All relations, callbacks, and values cleared
 	cancel (final) {
 		return this[_cancel](final, false);
+	}
+
+	return () {
+		return this.cancel();
 	}
 
 	// Sets new parent (or null) and recalculates value if req'd
@@ -189,37 +206,35 @@ export class Reactor {
 	// Internal portion of cancel()
 	[_cancel] (final, skipdel) {
 		if (this[_done]) {
-			return this[_value];
+			return this;
 		}
-		else {
-			// If finalfn is set, will be called with (final, value) before
-			// passing result downward
-			var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
-			// Reset finalval to val if _finally() returned undefined
-			finalval = (finalval !== undefined) ? finalval : final;
+		// If finalfn is set, will be called with (final, value) before
+		// passing result downward
+		var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
+		// Reset finalval to val if _finally() returned undefined
+		finalval = (finalval !== undefined) ? finalval : final;
 
-			// Cascade to children (set skipdel to true regardless of passed arg)
-			for (var child of this[_children]) {
-				child[_cancel](finalval, true);
-			}
-
-			// Clear children
-			this[_children].clear();
-
-			// Clear parent
-			// If skipdel is true, won't call delchild() on parent
-			// (so parent can clean its own child set after cascading)
-			this.detach(skipdel);
-
-			// Set value to final, clear thenfn/finalfn, and mark cancelled
-			this[_value] = finalval;
-			this[_then] = null;
-			this[_finally] = null;
-			this[_done] = true;
-
-			// Done
-			return finalval;
+		// Cascade to children (set skipdel to true regardless of passed arg)
+		for (var child of this[_children]) {
+			child[_cancel](finalval, true);
 		}
+
+		// Clear children
+		this[_children].clear();
+
+		// Clear parent
+		// If skipdel is true, won't call delchild() on parent
+		// (so parent can clean its own child set after cascading)
+		this.detach(skipdel);
+
+		// Set value to final, clear thenfn/finalfn, and mark cancelled
+		this[_value] = finalval;
+		this[_then] = null;
+		this[_finally] = null;
+		this[_done] = true;
+
+		// Done
+		return this;
 	}
 }
 
