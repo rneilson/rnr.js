@@ -179,7 +179,8 @@ export class Reactor {
 	}
 
 	// Attach this to new parent
-	attach (parent) {
+	// If skipset is true and parent is a Reactor, will skip setting value to parent's
+	attach (parent, skipset) {
 		if (this[_done]) {
 			throw new Error("Cannot attach() cancelled");
 		}
@@ -187,6 +188,9 @@ export class Reactor {
 			// Set new parent, add this to new parent's child set, and recalculate value
 			_children.get(parent).add(this);
 			// Will invoke setter and thus cascade if appropriate
+			if (skipset) {
+				return this;
+			}
 			return this.set(parent.value);
 		}
 		// This is now top of tree, set value and cascade as necessary
@@ -225,7 +229,20 @@ export class Reactor {
 
 }
 
+// Shortcut for 'new Reactor()'
 export function cr (initval, thenfn, finalfn) {
 	return new Reactor(initval, thenfn, finalfn);
+}
+
+// Creates new Reactor with multiple parents
+// Will not set any initial value
+export function crAny (...parents) {
+	var newcr = cr();
+	for (let parent of parents) {
+		if (parent instanceof Reactor) {
+			newcr.attach(parent, true);
+		}
+	}
+	return newcr;
 }
 
