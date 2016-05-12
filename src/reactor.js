@@ -147,7 +147,6 @@ export class Reactor {
 	}
 
 	// Cancels reactor and cascades
-	// All relations, callbacks, and values cleared
 	cancel (final) {
 		if (this[_done]) {
 			return this;
@@ -157,6 +156,7 @@ export class Reactor {
 		var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
 		// Reset finalval to val if _finally() returned undefined
 		finalval = (finalval !== undefined) ? finalval : final;
+		this[_value] = finalval;
 
 		var children = _children.get(this);
 		if (children !== undefined) {
@@ -166,17 +166,10 @@ export class Reactor {
 			}
 		}
 
-		// No longer necessary -- weakmap will GC once reference to this released
-		// And might be useful to hold onto tree for inspection
-		// children.clear();
-
-		// Set value to final, clear thenfn/finalfn, and mark cancelled
-		this[_value] = finalval;
+		// Clear thenfn/finalfn, and mark cancelled
 		this[_then] = null;
 		this[_finally] = null;
 		this[_done] = true;
-
-		// Done
 		return this;
 	}
 
@@ -210,19 +203,21 @@ export class Reactor {
 	// Returns array of now-former children
 	clear (cancel, final) {
 		var children = this.children;
-		// Clear child set
-		_children.get(this).clear();
-		// Explicitly cancel children if requested
-		if (cancel) {
-			for (var i = 0, len = children.length; i < len; i++) {
-				children[i].cancel(final);
+		if (children !== undefined) {
+			// Clear child set
+			_children.get(this).clear();
+			// Explicitly cancel children if requested
+			if (cancel) {
+				for (var i = 0, len = children.length; i < len; i++) {
+					children[i].cancel(final);
+				}
 			}
 		}
 		return children;
 	}
 
 	// Must be called with explicit false to remove persistence
-	// Undefined considered true here
+	// Undefined considered implicit true here
 	persist (per) {
 		this[_persist] = ((per === undefined) || (!!per));
 		return this;
