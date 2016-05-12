@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "description": "A small reactive data and utility library",
   "main": "dist/rn.cjs.js",
+  "jsnext:main": "dist/rn.js",
   "scripts": {
     "clean": "rm -r dist/*",
+    "strip:es6": "grep -v '^\\s*//[^#].*$' dist/rn.js | grep -v '^\\s*$' > dist/rn.min.js",
     "build:es6": "rollup -c",
     "build:cjs": "rollup -c -f cjs -o dist/rn.cjs.js",
     "prebuild": "npm run clean -s",
@@ -14,7 +16,6 @@
   "author": "Raymond Neilson",
   "license": "ISC",
   "devDependencies": {
-    "jasmine": "^2.4.1",
     "rollup": "^0.26.3",
     "rollup-plugin-json": "^2.0.0"
   }

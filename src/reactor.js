@@ -1,6 +1,6 @@
-/* Cascading-reactor defs & helpers */
-
 import { isCallable } from './utils.js';
+
+/* Cascading-reactor defs & helpers */
 
 // Symbols for private properties
 const _value = Symbol('_value');
