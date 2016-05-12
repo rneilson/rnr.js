@@ -1,0 +1,21 @@
+{
+  "name": "rnjs",
+  "version": "0.1.0",
+  "description": "A small reactive data and utility library",
+  "main": "dist/rn.cjs.js",
+  "scripts": {
+    "clean": "rm -r dist/*",
+    "build:es6": "rollup -c",
+    "build:cjs": "rollup -c -f cjs -o dist/rn.cjs.js",
+    "prebuild": "npm run clean",
+    "build": "npm run build:es6 && npm run build:cjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Raymond Neilson",
+  "license": "ISC",
+  "devDependencies": {
+    "jasmine": "^2.4.1",
+    "rollup": "^0.26.3",
+    "rollup-plugin-json": "^2.0.0"
+  }
+}
