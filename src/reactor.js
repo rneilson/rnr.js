@@ -182,9 +182,12 @@ export class Reactor {
 	// If skipset is true and parent is a Reactor, will skip setting value to parent's
 	attach (parent, skipset) {
 		if (this[_done]) {
-			throw new Error("Cannot attach() cancelled");
+			throw new Error("Cannot attach() cancelled Reactor");
 		}
 		if (parent instanceof Reactor) {
+			if (parent.done) {
+				throw new Error('Cannot attach() to cancelled Reactor');
+			}
 			// Set new parent, add this to new parent's child set, and recalculate value
 			_children.get(parent).add(this);
 			// Will invoke setter and thus cascade if appropriate
@@ -247,6 +250,9 @@ export function crAny (...parents) {
 }
 
 // Creates new reactor with multiple parents, with value equal to array of parent values
+// Parents which are reactors will be attached to, and each set() will update the returned array
+// Parents which are objects with a .value property will be included by reference
+// Parents which are raw values will be included in output as constants
 export function crAll (...parents) {
 	var sources = [];
 	var newcr = new Reactor(undefined, () => {
@@ -261,6 +267,9 @@ export function crAll (...parents) {
 			// Attach to parent
 			newcr.attach(parent, true);
 			sources.push(parent)
+		}
+		else if ('value' in parent) {
+			sources.push(parent);
 		}
 		else {
 			// Convert raw values to container objects
