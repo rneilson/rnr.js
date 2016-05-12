@@ -7,6 +7,7 @@ const _value = Symbol('_value');
 const _then = Symbol('_then');
 const _finally = Symbol('_finally');
 const _done = Symbol('_done');
+const _persist = Symbol('_persist');
 
 // Parent->children (weak) map
 const _children = new WeakMap();
@@ -66,7 +67,8 @@ export class Reactor {
 			this[_value] = initval;
 		}
 
-		// Set active
+		// Set active, default non-persistent
+		this[_persist] = false;
 		this[_done] = false;
 	}
 
@@ -76,6 +78,10 @@ export class Reactor {
 
 	get done () {
 		return this[_done];
+	}
+
+	get persistent () {
+		return this[_persist];
 	}
 
 	get children () {
@@ -94,11 +100,12 @@ export class Reactor {
 
 		// Only triggers cascade if value actually changed
 		if (newval !== oldval) {
+			this[_value] = newval;
+
 			// Autocancel
 			var cancelled = [];
 			var children = _children.get(this);
 
-			this[_value] = newval;
 			for (var child of children) {
 				child = child.set(newval);
 
@@ -108,7 +115,7 @@ export class Reactor {
 			}
 			var len = cancelled.length;
 			if (len > 0) {
-				if (len == children.size) {
+				if ((len == children.size) && (!this[_persist])) {
 					// Cancel self if all children cancelled
 					return this.cancel(newval);
 				}
@@ -212,6 +219,13 @@ export class Reactor {
 			}
 		}
 		return children;
+	}
+
+	// Must be called with explicit false to remove persistence
+	// Undefined considered true here
+	persist (per) {
+		this[_persist] = ((per === undefined) || (!!per));
+		return this;
 	}
 
 }
