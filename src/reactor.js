@@ -4,16 +4,12 @@ import { isCallable } from './utils.js';
 
 // Symbols for private properties
 const _value = Symbol('_value');
-const _parent = Symbol('_parent');
-const _children = Symbol('_children');
 const _then = Symbol('_then');
 const _finally = Symbol('_finally');
 const _done = Symbol('_done');
 
-// Symbols for private methods
-const _cancel = Symbol('_cancel');
-const _addchild = Symbol('_addchild');
-const _delchild = Symbol('_delchild');
+// Parent->children (weak) map
+const _children = new WeakMap();
 
 export class Reactor {
 	constructor(newval, thenfn, finalfn) {
@@ -46,19 +42,18 @@ export class Reactor {
 		// If newval is another Reactor, set it as parent
 		if (newval instanceof Reactor) {
 			// Add this to parent's child set
-			this[_parent] = newval[_addchild](this);
+			_children.get(newval).add(this);
 			// Get initial value from parent
 			initval = newval.value;
 		}
 		else {
-			// If newval is standalone, no parent
-			this[_parent] = null;
+			// Newval is standalone, no parent
 			// Use provided initial value
 			initval = newval;
 		}
 
 		// Start with empty child list
-		this[_children] = new Set();
+		_children.set(this, new Set());
 
 		// Function thenfn run once if present
 		// and given/parent value isn't undefined
@@ -75,25 +70,21 @@ export class Reactor {
 		this[_done] = false;
 	}
 
-	get done () {
-		return this[_done];
-	}
-
-	get parent () {
-		return this[_parent];
-	}
-
-	get children () {
-		return Array.from(this[_children]);
-	}
-
 	get value () {
 		return this[_value];
 	}
 
+	get done () {
+		return this[_done];
+	}
+
+	get children () {
+		return Array.from(_children.get(this));
+	}
+
 	set (val) {
 		if (this[_done]) {
-			throw new Error("Cannot set() cancelled");
+			return this;
 		}
 		var oldval = this[_value];
 		// Only run thenfn if val not undefined
@@ -101,25 +92,33 @@ export class Reactor {
 		// Set and pass along the raw value instead if newval is undefined
 		newval = (newval !== undefined) ? newval : val;
 
-		// Autocancel
-		var cancelled = false;
-
 		// Only triggers cascade if value actually changed
 		if (newval !== oldval) {
+			// Autocancel
+			var cancelled = [];
+			var children = _children.get(this);
+
 			this[_value] = newval;
-			for (var child of this[_children]) {
+			for (var child of children) {
+				child = child.set(newval);
+
 				if (child.done) {
-					this[_children].delete(child);
-					cancelled = true;
-				}
-				else {
-					child.set(newval);
+					cancelled.push(child);
 				}
 			}
-		}
-		// Cancel self if all children cancelled
-		if ((cancelled) && (this[_children].size === 0)) {
-			return this[_cancel](newval, false);
+			var len = cancelled.length;
+			if (len > 0) {
+				if (len == children.size) {
+					// Cancel self if all children cancelled
+					return this.cancel(newval);
+				}
+				else {
+					// Cull cancelled children
+					for (var i = 0; i < len; i++) {
+						children.delete(cancelled[i]);
+					}
+				}
+			}
 		}
 		return this;
 	}
@@ -143,68 +142,6 @@ export class Reactor {
 	// Cancels reactor and cascades
 	// All relations, callbacks, and values cleared
 	cancel (final) {
-		return this[_cancel](final, false);
-	}
-
-	return () {
-		return this.cancel();
-	}
-
-	// Sets new parent (or null) and recalculates value if req'd
-	// Returns new parent, or self if new value given instead
-	attach (par) {
-		if (this[_done]) {
-			throw new Error("Cannot attach() cancelled");
-		}
-		if (this[_parent] !== null) {
-			this.detach();
-		}
-		if (par instanceof Reactor) {
-			// Set new parent, add this to new parent's child set, and recalculate value
-			this[_parent] = par[_addchild](this);
-			// Will invoke setter and thus cascade if appropriate
-			this.set(par.value);
-			// Return new parent for chaining
-			return par;
-		}
-		// This is now top of tree, set value and cascade as necessary
-		return this.set(par);
-	}
-
-	// Removes from parent's child set and nulls parent
-	// Returns old parent
-	detach (skipdel) {
-		if ((!skipdel) && (this[_parent] !== null)) {
-			this[_parent][_delchild](this);
-		}
-		// Clear parent regardless
-		var par = this[_parent];
-		this[_parent] = null;
-		return par;
-	}
-
-	/*
-		Private(ish) methods
-	*/
-
-	// Adds child to set
-	[_addchild] (child) {
-		this[_children].add(child);
-		return this;
-	}
-
-	// Removes child from set
-	[_delchild] (child) {
-		// Error if child not in set
-		// TODO: make this silent failure instead?
-		if (!(this[_children].delete(child))) {
-			throw new Error("Child not in set when _delchild() called: " + child.toString);
-		}
-		return this;
-	}
-
-	// Internal portion of cancel()
-	[_cancel] (final, skipdel) {
 		if (this[_done]) {
 			return this;
 		}
@@ -214,18 +151,17 @@ export class Reactor {
 		// Reset finalval to val if _finally() returned undefined
 		finalval = (finalval !== undefined) ? finalval : final;
 
-		// Cascade to children (set skipdel to true regardless of passed arg)
-		for (var child of this[_children]) {
-			child[_cancel](finalval, true);
+		var children = _children.get(this);
+		if (children !== undefined) {
+			// Cascade to children (set skipdel to true regardless of passed arg)
+			for (var child of children) {
+				child.cancel(finalval);
+			}
 		}
 
-		// Clear children
-		this[_children].clear();
-
-		// Clear parent
-		// If skipdel is true, won't call delchild() on parent
-		// (so parent can clean its own child set after cascading)
-		this.detach(skipdel);
+		// No longer necessary -- weakmap will GC once reference to this released
+		// And might be useful to hold onto tree for inspection
+		// children.clear();
 
 		// Set value to final, clear thenfn/finalfn, and mark cancelled
 		this[_value] = finalval;
@@ -236,6 +172,48 @@ export class Reactor {
 		// Done
 		return this;
 	}
+
+	// Generator style (for later)
+	return () {
+		return this.cancel();
+	}
+
+	// Attach this to new parent
+	attach (parent) {
+		if (this[_done]) {
+			throw new Error("Cannot attach() cancelled");
+		}
+		if (parent instanceof Reactor) {
+			// Set new parent, add this to new parent's child set, and recalculate value
+			_children.get(parent).add(this);
+			// Will invoke setter and thus cascade if appropriate
+			return this.set(parent.value);
+		}
+		// This is now top of tree, set value and cascade as necessary
+		return this.set(parent);
+	}
+
+	// Detach this from parent without auto-cancel
+	detach (parent) {
+		_children.get(parent).delete(this);
+		return this;
+	}
+
+	// Clear children without self auto-cancel and optionally cancel children
+	// Returns array of now-former children
+	clear (cancel, final) {
+		var children = this.children;
+		// Clear child set
+		_children.get(this).clear();
+		// Explicitly cancel children if requested
+		if (cancel) {
+			for (var i = 0, len = children.length; i < len; i++) {
+				children[i].cancel(final);
+			}
+		}
+		return children;
+	}
+
 }
 
 export function cr (initval, thenfn, finalfn) {
