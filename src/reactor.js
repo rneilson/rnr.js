@@ -234,10 +234,10 @@ export function cr (initval, thenfn, finalfn) {
 	return new Reactor(initval, thenfn, finalfn);
 }
 
-// Creates new Reactor with multiple parents
-// Will not set any initial value
+// Creates new Reactor with multiple parents, with value equal to last-set parent
+// Initial value will be undefined
 export function crAny (...parents) {
-	var newcr = cr();
+	var newcr = new Reactor();
 	for (let parent of parents) {
 		if (parent instanceof Reactor) {
 			newcr.attach(parent, true);
@@ -246,3 +246,28 @@ export function crAny (...parents) {
 	return newcr;
 }
 
+// Creates new reactor with multiple parents, with value equal to array of parent values
+export function crAll (...parents) {
+	var sources = [];
+	var newcr = new Reactor(undefined, () => {
+		let arr = [];
+		for (let source of sources) {
+			arr.push(source.value);
+		}
+		return arr;
+	});
+	for (let parent of parents) {
+		if (parent instanceof Reactor) {
+			// Attach to parent
+			newcr.attach(parent, true);
+			sources.push(parent)
+		}
+		else {
+			// Convert raw values to container objects
+			sources.push({value: parent});
+		}
+	}
+	// Get initial values from parents
+	newcr.set(true);
+	return newcr;
+}

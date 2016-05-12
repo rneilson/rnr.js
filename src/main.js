@@ -2,5 +2,5 @@
 
 export { version } from '../package.json';
 export { isCallable } from './utils.js';
-export { cr, crAny, Reactor } from './reactor.js';
+export { cr, crAny, crAll, Reactor } from './reactor.js';
 
