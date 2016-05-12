@@ -6,5 +6,5 @@ export default {
 		json(),
 	],
 	sourceMap: true,
-	dest: './dist/rn.js'
+	moduleName: 'rn'
 }
