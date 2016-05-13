@@ -194,8 +194,8 @@ export class Reactor {
 	}
 
 	// Detach this from parent with optional auto-cancel if no children remain
-	detach (parent, cancel) {
-		parent[_delchild](this, cancel);
+	detach (parent, autocancel) {
+		parent[_delchild](this, autocancel);
 		return this;
 	}
 
@@ -229,10 +229,10 @@ export class Reactor {
 		return this;
 	}
 
-	[_delchild] (child, cancel) {
+	[_delchild] (child, autocancel) {
 		var children = this[_children];
 		children.delete(child);
-		if ((cancel) && (children.size == 0)) {
+		if ((autocancel) && (children.size == 0)) {
 			return this.cancel();
 		}
 		return this;
