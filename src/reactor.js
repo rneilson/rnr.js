@@ -10,6 +10,10 @@ const _done = Symbol('_done');
 const _persist = Symbol('_persist');
 const _children = Symbol('_children');
 
+// Symbols for private methods
+const _addchild = Symbol('_addchild');
+const _delchild = Symbol('_delchild');
+
 export class Reactor {
 	constructor(newval, thenfn, finalfn) {
 		// Params thenfn and finalfn are optional
@@ -41,7 +45,7 @@ export class Reactor {
 		// If newval is another Reactor, set it as parent
 		if (newval instanceof Reactor) {
 			// Add this to parent's child set
-			newval[_children].add(this);
+			newval[_addchild](this);
 			// Get initial value from parent
 			initval = newval.value;
 		}
@@ -157,11 +161,9 @@ export class Reactor {
 		this[_value] = finalval;
 
 		var children = this[_children];
-		if (children !== undefined) {
-			// Cascade to children (set skipdel to true regardless of passed arg)
-			for (var child of children) {
-				child.cancel(finalval);
-			}
+		// Cascade to children (set skipdel to true regardless of passed arg)
+		for (var child of children) {
+			child.cancel(finalval);
 		}
 
 		// Clear thenfn/finalfn, and mark cancelled
@@ -180,14 +182,11 @@ export class Reactor {
 	// If skipset is true and parent is a Reactor, will skip setting value to parent's
 	attach (parent, skipset) {
 		if (this[_done]) {
-			throw new Error("Cannot attach() cancelled Reactor");
+			throw new Error("Cannot attach cancelled Reactor");
 		}
 		if (parent instanceof Reactor) {
-			if (parent.done) {
-				throw new Error('Cannot attach() to cancelled Reactor');
-			}
 			// Set new parent, add this to new parent's child set, and recalculate value
-			parent[_children].add(this);
+			parent[_addchild](this);
 			// Will invoke setter and thus cascade if appropriate
 			if (skipset) {
 				return this;
@@ -198,9 +197,9 @@ export class Reactor {
 		return this.set(parent);
 	}
 
-	// Detach this from parent without auto-cancel
-	detach (parent) {
-		parent[_children].delete(this);
+	// Detach this from parent with optional auto-cancel if no children remain
+	detach (parent, cancel) {
+		parent[_delchild](this, cancel);
 		return this;
 	}
 
@@ -208,14 +207,12 @@ export class Reactor {
 	// Returns array of now-former children
 	clear (cancel, final) {
 		var children = this.children;
-		if (children !== undefined) {
-			// Clear child set
-			this[_children].clear();
-			// Explicitly cancel children if requested
-			if (cancel) {
-				for (var i = 0, len = children.length; i < len; i++) {
-					children[i].cancel(final);
-				}
+		// Clear child set
+		this[_children].clear();
+		// Explicitly cancel children if requested
+		if (cancel) {
+			for (var i = 0, len = children.length; i < len; i++) {
+				children[i].cancel(final);
 			}
 		}
 		return children;
@@ -225,6 +222,23 @@ export class Reactor {
 	// Undefined considered implicit true here
 	persist (per) {
 		this[_persist] = ((per === undefined) || (!!per));
+		return this;
+	}
+
+	[_addchild] (child) {
+		if (this[_done]) {
+			throw new Error('Cannot add child to cancelled Reactor');
+		}
+		this[_children].add(child);
+		return this;
+	}
+
+	[_delchild] (child, cancel) {
+		var children = this[_children];
+		children.delete(child);
+		if ((cancel) && (children.size == 0)) {
+			return this.cancel();
+		}
 		return this;
 	}
 
