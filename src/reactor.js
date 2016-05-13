@@ -17,7 +17,7 @@ const _delchild = Symbol('_delchild');
 const _isactive = Symbol('_isactive');
 const _set = Symbol('_set');
 
-export class Reactor {
+class Reactor {
 	constructor(newval, thenfn, finalfn) {
 		// Params thenfn and finalfn are optional
 		// Must be functions if given, however
@@ -70,6 +70,50 @@ export class Reactor {
 		this[_persist] = false;
 	}
 
+	// Creates new Reactor with multiple parents, with value equal to last-set parent
+	// Initial value will be undefined
+	static any(...parents) {
+		var newcr = new Reactor();
+		for (let parent of parents) {
+			if (parent instanceof Reactor) {
+				newcr.attach(parent, true);
+			}
+		}
+		return newcr;
+	}
+
+	// Creates new reactor with multiple parents, with value equal to array of parent values
+	// Parents which are reactors will be attached to, and each set() will update the returned array
+	// Parents which are objects with a .value property will be included by reference
+	// Parents which are raw values will be included in output as constants
+	static all(...parents) {
+		var sources = [];
+		var newcr = new Reactor(undefined, () => {
+			let arr = [];
+			for (let source of sources) {
+				arr.push(source.value);
+			}
+			return arr;
+		});
+		for (let parent of parents) {
+			if (parent instanceof Reactor) {
+				// Attach to parent
+				newcr.attach(parent, true);
+				sources.push(parent)
+			}
+			else if (Object.prototype.hasOwnProperty.call(parent, 'value')) {
+				sources.push(parent);
+			}
+			else {
+				// Convert raw values to container objects
+				sources.push({value: parent});
+			}
+		}
+		// Get initial values from parents
+		newcr.set(true);
+		return newcr;
+	}
+
 	get value () {
 		return this[_value];
 	}
@@ -107,10 +151,7 @@ export class Reactor {
 
 	// Returns new reactor with no thenfn and given finalfn
 	finally (finalfn) {
-		if (this[_done]) {
-			throw new Error("Cannot cascade from cancelled");
-		}
-		return new Reactor(this, null, finalfn);
+		return this.then(null, finalfn);
 	}
 
 	// Cancels reactor and cascades
@@ -139,9 +180,11 @@ export class Reactor {
 		return this;
 	}
 
-	// Generator style (for later)
-	return () {
-		return this.cancel();
+	// Must be called with explicit false to remove persistence
+	// Undefined considered implicit true here
+	persist (per) {
+		this[_persist] = ((per === undefined) || (!!per));
+		return this;
 	}
 
 	// Attach this to new parent
@@ -182,13 +225,6 @@ export class Reactor {
 			}
 		}
 		return children;
-	}
-
-	// Must be called with explicit false to remove persistence
-	// Undefined considered implicit true here
-	persist (per) {
-		this[_persist] = ((per === undefined) || (!!per));
-		return this;
 	}
 
 	[_addchild] (child) {
@@ -247,51 +283,18 @@ export class Reactor {
 
 }
 
-// Shortcut for 'new Reactor()'
-export function cr (...args) {
+/* Shortcut functions */
+
+function cr (...args) {
 	return new Reactor(...args);
 }
 
-// Creates new Reactor with multiple parents, with value equal to last-set parent
-// Initial value will be undefined
-export function crAny (...parents) {
-	var newcr = new Reactor();
-	for (let parent of parents) {
-		if (parent instanceof Reactor) {
-			newcr.attach(parent, true);
-		}
-	}
-	return newcr;
+function crAny (...args) {
+	return Reactor.any(...args);
 }
 
-// Creates new reactor with multiple parents, with value equal to array of parent values
-// Parents which are reactors will be attached to, and each set() will update the returned array
-// Parents which are objects with a .value property will be included by reference
-// Parents which are raw values will be included in output as constants
-export function crAll (...parents) {
-	var sources = [];
-	var newcr = new Reactor(undefined, () => {
-		let arr = [];
-		for (let source of sources) {
-			arr.push(source.value);
-		}
-		return arr;
-	});
-	for (let parent of parents) {
-		if (parent instanceof Reactor) {
-			// Attach to parent
-			newcr.attach(parent, true);
-			sources.push(parent)
-		}
-		else if ('value' in parent) {
-			sources.push(parent);
-		}
-		else {
-			// Convert raw values to container objects
-			sources.push({value: parent});
-		}
-	}
-	// Get initial values from parents
-	newcr.set(true);
-	return newcr;
+function crAll (...args) {
+	return Reactor.all(...args);
 }
+
+export { cr, crAny, crAll, Reactor };
