@@ -8,9 +8,7 @@
   "scripts": {
     "clean": "rm -rf dist/*",
     "build:es6": "rollup -c -o dist/rnr.js",
-    "postbuild:es6": "tools/strip.sh dist/rnr.js",
     "build:cjs": "rollup -c -f cjs -o dist/rnr.cjs.js",
-    "postbuild:cjs": "tools/strip.sh dist/rnr.cjs.js",
     "build:iife": "rollup -c -f iife -o dist/rnr.iife.js",
     "postbuild:iife": "tools/strip.sh dist/rnr.iife.js",
     "prebuild": "npm run clean -s",

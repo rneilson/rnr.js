@@ -1,4 +1,4 @@
-import { isCallable } from './utils.js';
+import { funcOrNull } from './utils.js';
 
 /* Cascading-reactor defs & helpers */
 
@@ -19,23 +19,15 @@ export class Reactor {
 		// Params thenfn and finalfn are optional
 		// Must be functions if given, however
 
-		if ((thenfn === undefined) || (thenfn === null)) {
-			this[_then] = null;
-		}
-		else if (isCallable(thenfn)) {
-			this[_then] = thenfn;
-		}
-		else {
+		try {
+			this[_then] = funcOrNull(thenfn);
+		} catch (e) {
 			throw new Error("Param 'thenfn' must be a function");
 		}
 
-		if ((finalfn === undefined) || (finalfn === null)) {
-			this[_finally] = null;
-		}
-		else if (isCallable(finalfn)) {
-			this[_finally] = finalfn;
-		}
-		else {
+		try {
+			this[_finally] = funcOrNull(finalfn);
+		} catch (e) {
 			throw new Error("Param 'finalfn' must be a function");
 		}
 
@@ -108,7 +100,7 @@ export class Reactor {
 			var cancelled = [];
 			var children = this[_children];
 
-			for (var child of children) {
+			for (let child of children) {
 				child = child.set(newval);
 
 				if (child.done) {
@@ -123,7 +115,7 @@ export class Reactor {
 				}
 				else {
 					// Cull cancelled children
-					for (var i = 0; i < len; i++) {
+					for (let i = 0; i < len; i++) {
 						children.delete(cancelled[i]);
 					}
 				}
@@ -162,7 +154,7 @@ export class Reactor {
 
 		var children = this[_children];
 		// Cascade to children (set skipdel to true regardless of passed arg)
-		for (var child of children) {
+		for (let child of children) {
 			child.cancel(finalval);
 		}
 
@@ -211,7 +203,7 @@ export class Reactor {
 		this[_children].clear();
 		// Explicitly cancel children if requested
 		if (cancel) {
-			for (var i = 0, len = children.length; i < len; i++) {
+			for (let i = 0, len = children.length; i < len; i++) {
 				children[i].cancel(final);
 			}
 		}
@@ -245,8 +237,8 @@ export class Reactor {
 }
 
 // Shortcut for 'new Reactor()'
-export function cr (initval, thenfn, finalfn) {
-	return new Reactor(initval, thenfn, finalfn);
+export function cr (...args) {
+	return new Reactor(...args);
 }
 
 // Creates new Reactor with multiple parents, with value equal to last-set parent
