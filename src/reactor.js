@@ -8,9 +8,7 @@ const _then = Symbol('_then');
 const _finally = Symbol('_finally');
 const _done = Symbol('_done');
 const _persist = Symbol('_persist');
-
-// Parent->children (weak) map
-const _children = new WeakMap();
+const _children = Symbol('_children');
 
 export class Reactor {
 	constructor(newval, thenfn, finalfn) {
@@ -43,7 +41,7 @@ export class Reactor {
 		// If newval is another Reactor, set it as parent
 		if (newval instanceof Reactor) {
 			// Add this to parent's child set
-			_children.get(newval).add(this);
+			newval[_children].add(this);
 			// Get initial value from parent
 			initval = newval.value;
 		}
@@ -54,7 +52,7 @@ export class Reactor {
 		}
 
 		// Start with empty child list
-		_children.set(this, new Set());
+		this[_children] = new Set();
 
 		// Function thenfn run once if present
 		// and given/parent value isn't undefined
@@ -85,7 +83,7 @@ export class Reactor {
 	}
 
 	get children () {
-		return Array.from(_children.get(this));
+		return Array.from(this[_children]);
 	}
 
 	set (val) {
@@ -104,7 +102,7 @@ export class Reactor {
 
 			// Autocancel
 			var cancelled = [];
-			var children = _children.get(this);
+			var children = this[_children];
 
 			for (var child of children) {
 				child = child.set(newval);
@@ -158,7 +156,7 @@ export class Reactor {
 		finalval = (finalval !== undefined) ? finalval : final;
 		this[_value] = finalval;
 
-		var children = _children.get(this);
+		var children = this[_children];
 		if (children !== undefined) {
 			// Cascade to children (set skipdel to true regardless of passed arg)
 			for (var child of children) {
@@ -189,7 +187,7 @@ export class Reactor {
 				throw new Error('Cannot attach() to cancelled Reactor');
 			}
 			// Set new parent, add this to new parent's child set, and recalculate value
-			_children.get(parent).add(this);
+			parent[_children].add(this);
 			// Will invoke setter and thus cascade if appropriate
 			if (skipset) {
 				return this;
@@ -202,7 +200,7 @@ export class Reactor {
 
 	// Detach this from parent without auto-cancel
 	detach (parent) {
-		_children.get(parent).delete(this);
+		parent[_children].delete(this);
 		return this;
 	}
 
@@ -212,7 +210,7 @@ export class Reactor {
 		var children = this.children;
 		if (children !== undefined) {
 			// Clear child set
-			_children.get(this).clear();
+			this[_children].clear();
 			// Explicitly cancel children if requested
 			if (cancel) {
 				for (var i = 0, len = children.length; i < len; i++) {
