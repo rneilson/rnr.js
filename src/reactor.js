@@ -15,6 +15,7 @@ const _children = Symbol('_children');
 const _addchild = Symbol('_addchild');
 const _delchild = Symbol('_delchild');
 const _isactive = Symbol('_isactive');
+const _set = Symbol('_set');
 
 export class Reactor {
 	constructor(newval, thenfn, finalfn) {
@@ -85,46 +86,15 @@ export class Reactor {
 		return Array.from(this[_children]);
 	}
 
+	// Checks if any children are active, then sets or cancels accordingly
 	set (val) {
 		if (this[_done]) {
 			return this;
 		}
-		var oldval = this[_value];
-		// Only run thenfn if val not undefined
-		var newval = ((val !== undefined) && (this[_then] !== null)) ? this[_then](val, oldval) : val;
-		// Set and pass along the raw value instead if newval is undefined
-		newval = (newval !== undefined) ? newval : val;
-
-		// Only triggers cascade if value actually changed
-		if (newval !== oldval) {
-			this[_value] = newval;
-
-			// Autocancel
-			var cancelled = [];
-			var children = this[_children];
-
-			for (let child of children) {
-				child = child.set(newval);
-
-				if (child.done) {
-					cancelled.push(child);
-				}
-			}
-			var len = cancelled.length;
-			if (len > 0) {
-				if ((len == children.size) && (!this[_persist])) {
-					// Cancel self if all children cancelled
-					return this.cancel(newval);
-				}
-				else {
-					// Cull cancelled children
-					for (let i = 0; i < len; i++) {
-						children.delete(cancelled[i]);
-					}
-				}
-			}
+		if (this[_isactive]()) {
+			return this[_set](val);
 		}
-		return this;
+		return this.cancel(val);
 	}
 
 	// Returns new reactor with given thenfn and/or finalfn
@@ -151,7 +121,7 @@ export class Reactor {
 		// If finalfn is set, will be called with (final, value) before
 		// passing result downward
 		var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
-		// Reset finalval to val if _finally() returned undefined
+		// Reset finalval to final if _finally() returned undefined
 		finalval = (finalval !== undefined) ? finalval : final;
 		this[_value] = finalval;
 
@@ -241,13 +211,38 @@ export class Reactor {
 	[_isactive] () {
 		// If persistent, will return true even if all children return false
 		var active = this[_persist];
-		var children = this[_children];
-		for (let child of children) {
+		for (let child of this[_children]) {
 			if (child[_isactive]()) {
 				active = true;
 			}
 		}
 		return this[_active] = active;
+	}
+
+	[_set] (val) {
+		// Can assume if called that:
+		// - _isactive() has already been called this sweep
+		// - we can run thenfn safely
+		// - we can cancel and remove inactive children
+		var oldval = this[_value];
+		// Only run thenfn if val not undefined
+		var newval = ((val !== undefined) && (this[_then] !== null)) ? this[_then](val, oldval) : val;
+		// Set and pass along the raw value instead if newval is undefined
+		newval = (newval !== undefined) ? newval : val;
+
+		// Only triggers cascade if value actually changed
+		if (newval !== oldval) {
+			this[_value] = newval;
+			for (let child of this[_children]) {
+				if (child[_active]) {
+					child[_set](newval);
+				}
+				else {
+					this[_delchild](child.cancel(newval));
+				}
+			}
+		}
+		return this;
 	}
 
 }
