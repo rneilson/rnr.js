@@ -6,6 +6,7 @@ import { funcOrNull } from './utils.js';
 const _value = Symbol('_value');
 const _then = Symbol('_then');
 const _finally = Symbol('_finally');
+const _active = Symbol('_active');
 const _done = Symbol('_done');
 const _persist = Symbol('_persist');
 const _children = Symbol('_children');
@@ -13,6 +14,7 @@ const _children = Symbol('_children');
 // Symbols for private methods
 const _addchild = Symbol('_addchild');
 const _delchild = Symbol('_delchild');
+const _isactive = Symbol('_isactive');
 
 export class Reactor {
 	constructor(newval, thenfn, finalfn) {
@@ -62,8 +64,9 @@ export class Reactor {
 		}
 
 		// Set active, default non-persistent
-		this[_persist] = false;
+		this[_active] = true;
 		this[_done] = false;
+		this[_persist] = false;
 	}
 
 	get value () {
@@ -161,6 +164,7 @@ export class Reactor {
 		// Clear thenfn/finalfn, and mark cancelled
 		this[_then] = null;
 		this[_finally] = null;
+		this[_active] = false;
 		this[_done] = true;
 		return this;
 	}
@@ -232,6 +236,18 @@ export class Reactor {
 			return this.cancel();
 		}
 		return this;
+	}
+
+	[_isactive] () {
+		// If persistent, will return true even if all children return false
+		var active = this[_persist];
+		var children = this[_children];
+		for (let child of children) {
+			if (child[_isactive]()) {
+				active = true;
+			}
+		}
+		return this[_active] = active;
 	}
 
 }
