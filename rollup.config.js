@@ -6,5 +6,5 @@ export default {
 		json(),
 	],
 	sourceMap: true,
-	moduleName: 'rn'
+	moduleName: 'rnr'
 }
