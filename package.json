@@ -18,6 +18,8 @@
   "author": "Raymond Neilson",
   "license": "ISC",
   "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^2.4.5",
     "rollup": "^0.26.3",
     "rollup-plugin-json": "^2.0.0"
   }
