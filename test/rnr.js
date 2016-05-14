@@ -9,32 +9,55 @@ describe('Reactor', function() {
 
 		it('should return a Reactor instance');
 
-		it('should have a value of undefined to start');
+		it('should have a value of undefined when no initial value given');
 
-		it('should have a value after being set');
+		it('should have the given initial value after creation');
 
-	});
+		it('should only take a function as param thenfn');
 
-	describe('cr(val)', function() {
+		it('should only take a function as param finalfn');
 
-		it('should have the initial value after creation');
-
-		it('should update the value when set');
 	});
 
 	describe('set()', function() {
 
+		it('should update the value when set');
+
 		it('should update if value is different from previous');
 
 		it('should not update if value is the same as previous');
+
+		it('should update the value with the output of thenfn');
+
+		it('should not run thenfn when the value is undefined');
+
 	});
 
 	describe('then()', function() {
 
+		it('should return a new Reactor instance');
+
 		it('should update children when parent set');
 
-		it('should run the function when updated');
+		it('should run thenfn when parent updated');
 
-		it('should not run the function when the input is undefined');
+		it('should not run thenfn when parent passes undefined');
+
 	});
+
+	describe.skip('finally()', function(){});
+
+	describe.skip('cancel()', function(){});
+
+	describe.skip('persist()', function(){});
+
+	describe.skip('attach()', function(){});
+
+	describe.skip('detach()', function(){});
+
+	describe.skip('clear()', function(){});
+
+	describe.skip('crAny()', function(){});
+
+	describe.skip('crAll()', function(){});
 });
