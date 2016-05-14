@@ -1,21 +1,60 @@
 /* Tests for reactor.js */
 
-var assert = require('chai').assert;
+var expect = require('chai').expect;
 var rnr = require('../dist/rnr.cjs.js');
 
 describe('Reactor', function() {
 
 	describe('cr()', function() {
 
-		it('should return a Reactor instance');
+		var a = rnr.cr();
 
-		it('should have a value of undefined when no initial value given');
+		it('should return a Reactor instance', function() {
 
-		it('should have the given initial value after creation');
+			expect(a).to.be.an.instanceof(rnr.Reactor);
+		});
 
-		it('should only take a function as param thenfn');
+		it('should have a value of undefined when no initial value given', function() {
 
-		it('should only take a function as param finalfn');
+			expect(a.value).to.be.undefined;
+		});
+
+		it('should have the given initial value after creation', function() {
+
+			a = rnr.cr(1);
+
+			expect(a.value).to.equal(1);
+		});
+
+		it('should only take a function as param thenfn', function() {
+
+			var goodfn = function() {
+				rnr.cr(undefined, function(){});
+			};
+
+			var badfn = function() {
+				rnr.cr(undefined, 1);
+			};
+
+			expect(goodfn).to.not.throw(Error);
+
+			expect(badfn).to.throw(Error);
+		});
+
+		it('should only take a function as param finalfn', function() {
+
+			var goodfn = function() {
+				rnr.cr(undefined, function(){}, function(){});
+			};
+
+			var badfn = function() {
+				rnr.cr(undefined, function(){}, 1);
+			};
+
+			expect(goodfn).to.not.throw(Error);
+
+			expect(badfn).to.throw(Error);
+		});
 
 	});
 
