@@ -117,7 +117,6 @@ describe('Reactor', function() {
 		it('should not run thenfn when the passed value is undefined', function() {
 
 			var tmpcount = counter;
-
 			b.set(undefined);
 
 			expect(counter).to.equal(tmpcount);
@@ -129,7 +128,6 @@ describe('Reactor', function() {
 			c = rnr.cr(0, function() {
 				counter++;
 			});
-
 			c.set(1);
 
 			expect(c.value).to.equal(1);
@@ -141,21 +139,28 @@ describe('Reactor', function() {
 
 		var counter = 0;
 		var a = rnr.cr(1);
-		var b = a.then();
-		var c = a.then(function(x) {
-			counter++;
-			return x + 1;
-		});
+		var b, c, d;
 
 		it('should return a new Reactor instance', function() {
 
-			expect(b).to.be.an.instanceof(rnr.Reactor);
+			b = a.then();
 
-			expect(c).to.be.an.instanceof(rnr.Reactor);
+			expect(b).to.be.an.instanceof(rnr.Reactor);
 		});
 
-		it('should be in its parent\'s child set', function() {
+		it('should add the child to its parent\'s child set', function() {
 
+			var children = a.children;
+
+			expect(children).to.include(b);
+		});
+
+		it('should add another child when called again on the parent', function() {
+
+			c = a.then(function(x) {
+				counter++;
+				return x + 1;
+			});
 			var children = a.children;
 
 			expect(children).to.include(b);
@@ -176,7 +181,6 @@ describe('Reactor', function() {
 		it('should be updated when its parent is set to a new value', function() {
 
 			var tmpvalue = c.value;
-
 			a.set(2);
 
 			expect(c.value).to.not.equal(tmpvalue);
@@ -188,10 +192,27 @@ describe('Reactor', function() {
 
 			var tmpcount = counter;
 			var tmpvalue = a.value;
-
 			a.set(tmpvalue);
 
 			expect(counter).to.equal(tmpcount);
+		});
+
+		it('should add another child level when called on a child', function() {
+
+			d = c.then(function(x) {
+				return x + 2;
+			});
+
+			expect(c.children).to.include(d);
+		});
+
+		it('should update its child\'s value when its parent updates it', function() {
+
+			a.set(1);
+
+			expect(c.value).to.equal(2);
+
+			expect(d.value).to.equal(4);
 		});
 
 	});
