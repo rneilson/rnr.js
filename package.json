@@ -1,5 +1,5 @@
 {
-  "name": "rnr.js",
+  "name": "rnr",
   "version": "0.1.0",
   "description": "A small reactive data and utility library",
   "main": "dist/rnr.cjs.js",
