@@ -245,11 +245,21 @@ class Reactor {
 	}
 
 	[_isactive] () {
-		// If persistent, will return true even if all children return false
-		var active = this[_persist];
-		for (let child of this[_children]) {
-			if (child[_isactive]()) {
-				active = true;
+		if (this[_done]) {
+			return false;
+		}
+		var active;
+		// Default to active if no children
+		if (this[_children].size == 0) {
+			active = true;
+		}
+		else {
+			// If persistent, will be active even if all children inactive
+			active = this[_persist];
+			for (let child of this[_children]) {
+				if (child[_isactive]()) {
+					active = true;
+				}
 			}
 		}
 		return this[_active] = active;
