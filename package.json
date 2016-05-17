@@ -14,7 +14,7 @@
     "prebuild": "npm run clean -s",
     "build": "npm run build:es6 && npm run build:cjs && npm run build:iife",
     "test": "node_modules/.bin/mocha",
-    "postinstall": "npm run build && npm run test"
+    "postinstall": "mkdir dist && npm run build && npm run test"
   },
   "author": "Raymond Neilson <rneilson@interloper.ca> (https://github.com/rneilson)",
   "license": "Apache-2.0",
