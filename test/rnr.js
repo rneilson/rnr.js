@@ -379,6 +379,16 @@ describe('Reactor', function() {
 			expect(children).to.include.members([b]);
 			expect(children).to.not.include.members([c]);
 		});
+
+		it('should throw an error when then() called on cancelled', function() {
+
+			var a = rnr.cr();
+			a.cancel();
+
+			expect(function() {
+				var b = a.then();
+			}).to.throw(/Cannot cascade from cancelled/);
+		});
 	});
 
 	describe('finally()', function() {
@@ -489,7 +499,75 @@ describe('Reactor', function() {
 		});
 	});
 
-	describe.skip('attach()', function(){});
+	describe('attach()', function() {
+
+		it('should add it to new parent\'s child set', function() {
+
+			var a = rnr.cr();
+			var b = rnr.cr();
+			b.attach(a);
+
+			expect(a.children).to.include.members([b]);
+		});
+
+		it('should set initial value to new parent\'s value', function() {
+
+			var a = rnr.cr(1);
+			var b = rnr.cr(0);
+			b.attach(a);
+
+			expect(b.value).to.equal(1);
+		});
+
+		it('should not set initial value to new parent\'s value when skipset arg true', function() {
+
+			var a = rnr.cr(1);
+			var b = rnr.cr(0);
+			b.attach(a, true);
+
+			expect(b.value).to.equal(0);
+		});
+
+		it('should return the same object', function() {
+
+			var a = rnr.cr(1);
+			var b = rnr.cr(0);
+			var c = b.attach(a);
+
+			expect(c).to.equal(b);
+		});
+
+		it('should set the value to parent arg if arg is not a Reactor', function() {
+
+			var a = rnr.cr(0);
+			a.attach(1);
+
+			expect(a.value).to.equal(1);
+		});
+
+		it('should add multiple parents if called multiple times', function() {
+
+			var a = rnr.cr(1);
+			var b = rnr.cr(2);
+			var c = rnr.cr();
+
+			c.attach(a);
+
+			expect(c.value).to.equal(1);
+			expect(a.children).to.include.members([c]);
+
+			c.attach(b);
+
+			expect(c.value).to.equal(2);
+			expect(b.children).to.include.members([c]);
+
+			a.set(3);
+			expect(c.value).to.equal(3);
+
+			b.set(4);
+			expect(c.value).to.equal(4);
+		});
+	});
 
 	describe.skip('detach()', function(){});
 
