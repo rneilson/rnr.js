@@ -420,13 +420,74 @@ describe('Reactor', function() {
 			b = a.finally(function(x) {
 				return x + 1;
 			})
+
+			expect(b.value).to.be.undefined;
+
 			a.cancel(1);
 
 			expect(b.value).to.equal(2);
 		});
 	});
 
-	describe.skip('persist()', function(){});
+	describe('persist()', function() {
+
+		var a, b, c;
+
+		beforeEach(function() {
+			a = rnr.cr(0);
+		});
+
+		it('should return the same object', function() {
+			b = a.persist();
+
+			expect(b).to.equal(a);
+		});
+
+		it('should set persistent to true when called without arguments', function() {
+
+			a.persist();
+
+			expect(a.persistent).to.be.true;
+		});
+
+		it('should set persistent to true when called with true', function() {
+
+			a.persist(true);
+
+			expect(a.persistent).to.be.true;
+		});
+
+		it('should set persistent to false when called with false', function() {
+
+			a.persist(false);
+
+			expect(a.persistent).to.be.false;
+		});
+
+		it('should not autocancel when persistent if set when all children cancelled', function() {
+
+			a.persist();
+			b = a.then();
+			b.cancel();
+			a.set(1);
+
+			expect(a.done).to.be.false;
+			expect(a.children).to.have.lengthOf(0);
+		});
+
+		it('should not autocancel when persistent if parent set when all children cancelled', function() {
+
+			b = a.then().persist();
+			c = b.then();
+			c.cancel();
+			a.set(1);
+
+			expect(a.done).to.be.false;
+			expect(a.children).to.include.members([b]);
+			expect(b.done).to.be.false;
+			expect(b.children).to.have.lengthOf(0);
+		});
+	});
 
 	describe.skip('attach()', function(){});
 
