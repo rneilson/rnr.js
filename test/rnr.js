@@ -501,6 +501,10 @@ describe('Reactor', function() {
 
 	describe('attach()', function() {
 
+		it('should not be able to be called with itself as arg');
+
+		it('should not be able to be called with any of its children as arg');
+
 		it('should add it to new parent\'s child set', function() {
 
 			var a = rnr.cr();
@@ -663,7 +667,75 @@ describe('Reactor', function() {
 		});
 	});
 
-	describe.skip('crAny()', function(){});
+	describe('crAny()', function() {
 
-	describe.skip('crAll()', function(){});
+		var a, b, c;
+		a = rnr.cr(1);
+		b = rnr.cr(2);
+
+		it('should return a new Reactor', function() {
+
+			c = rnr.crAny(a, b);
+
+			expect(c).to.be.an.instanceof(rnr.Reactor);
+		});
+
+		it('should add it to all given parents\' child sets', function() {
+
+			expect(a.children).to.include.members([c]);
+			expect(b.children).to.include.members([c]);
+		});
+
+		it('should have an initial value of undefined', function() {
+
+			expect(c.value).to.be.undefined;
+		});
+
+		it('should update when any parent set', function() {
+
+			a.set(3);
+
+			expect(c.value).to.equal(3);
+
+			b.set(4);
+
+			expect(c.value).to.equal(4);
+		});
+	});
+
+	describe('crAll()', function() {
+
+		var a, b, c;
+		a = rnr.cr(1);
+		b = rnr.cr(2);
+
+		it('should return a new Reactor', function() {
+
+			c = rnr.crAll(a, b);
+
+			expect(c).to.be.an.instanceof(rnr.Reactor);
+		});
+
+		it('should add it to all given parents\' child sets', function() {
+
+			expect(a.children).to.include.members([c]);
+			expect(b.children).to.include.members([c]);
+		});
+
+		it('should have an initial value of an array of all parents\' values', function() {
+
+			expect(c.value).to.eql([1, 2]);
+		});
+
+		it('should update when any parent set', function() {
+
+			a.set(3);
+
+			expect(c.value).to.eql([3, 2]);
+
+			b.set(4);
+
+			expect(c.value).to.eql([3, 4]);
+		});
+	});
 });
