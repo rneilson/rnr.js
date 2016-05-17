@@ -569,9 +569,99 @@ describe('Reactor', function() {
 		});
 	});
 
-	describe.skip('detach()', function(){});
+	describe('detach()', function() {
 
-	describe.skip('clear()', function(){});
+		var a, b;
+
+		beforeEach(function() {
+			a = rnr.cr();
+			b = a.then();
+		});
+
+		it('should remove it from given parent\'s child set', function() {
+
+			expect(a.children).to.include.members([b]);
+
+			b.detach(a);
+
+			expect(a.children).to.not.include.members([b]);
+		});
+
+		it('should not cancel given parent if last child removed', function() {
+
+			b.detach(a);
+
+			expect(a.done).to.be.false;
+		});
+
+		it('should cancel given parent if last child removed and autocancel arg true', function() {
+
+			b.detach(a, true);
+
+			expect(a.done).to.be.true;
+		});
+	});
+
+	describe('clear()', function() {
+
+		var a, b, c;
+
+		beforeEach(function() {
+			a = rnr.cr();
+			b = a.then();
+			c = a.then();
+		});
+
+		it('should remove all children from child set', function() {
+
+			expect(a.children).to.include.members([b, c]);
+
+			a.clear();
+
+			expect(a.children).to.have.lengthOf(0);
+		});
+
+		it('should not autocancel self when called', function() {
+
+			a.clear();
+
+			expect(a.done).to.be.false;
+		});
+
+		it('should not cancel children if cancel arg not given', function() {
+
+			a.clear();
+
+			expect(b.done).to.be.false;
+			expect(c.done).to.be.false;
+		});
+
+		it('should not cancel children if cancel arg false', function() {
+
+			a.clear(false);
+
+			expect(b.done).to.be.false;
+			expect(c.done).to.be.false;
+		});
+
+		it('should cancel children if cancel arg true', function() {
+
+			a.clear(true);
+
+			expect(b.done).to.be.true;
+			expect(c.done).to.be.true;
+		});
+
+		it('should use final arg when cancelling children', function() {
+
+			a.clear(true, 1);
+
+			expect(b.done).to.be.true;
+			expect(b.value).to.equal(1);
+			expect(c.done).to.be.true;
+			expect(c.value).to.equal(1);
+		});
+	});
 
 	describe.skip('crAny()', function(){});
 
