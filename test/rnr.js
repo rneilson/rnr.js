@@ -41,9 +41,9 @@ describe('Reactor', function() {
 				rnr.cr(undefined, 1);
 			};
 
-			expect(goodfn).to.not.throw(Error);
+			expect(goodfn).to.not.throw(/must be a function/);
 
-			expect(badfn).to.throw(Error);
+			expect(badfn).to.throw(/must be a function/);
 		});
 
 		it('should only take a function as param finalfn', function() {
@@ -56,9 +56,9 @@ describe('Reactor', function() {
 				rnr.cr(undefined, function(){}, 1);
 			};
 
-			expect(goodfn).to.not.throw(Error);
+			expect(goodfn).to.not.throw(/must be a function/);
 
-			expect(badfn).to.throw(Error);
+			expect(badfn).to.throw(/must be a function/);
 		});
 
 	});
@@ -501,9 +501,31 @@ describe('Reactor', function() {
 
 	describe('attach()', function() {
 
-		it('should not be able to be called with itself as arg');
+		it('should throw when called on cancelled Reactor', function() {
 
-		it('should not be able to be called with any of its children as arg');
+			expect(function() {
+				var a = rnr.cr();
+				a.cancel();
+				a.attach(0);
+			}).to.throw(/Cannot attach/);
+		});
+
+		it('should throw when called with itself as arg', function() {
+
+			expect(function() {
+				var a = rnr.cr();
+				a.attach(a);
+			}).to.throw(/Cannot attach/);
+		});
+
+		it('should throw when called with any of its children as arg', function() {
+
+			expect(function() {
+				var a = rnr.cr();
+				var b = a.then();
+				a.attach(b);
+			}).to.throw(/Cannot attach/);
+		});
 
 		it('should add it to new parent\'s child set', function() {
 

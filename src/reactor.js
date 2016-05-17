@@ -193,6 +193,12 @@ class Reactor {
 		if (this[_done]) {
 			throw new Error("Cannot attach cancelled Reactor");
 		}
+		if (this === parent) {
+			throw new Error("Cannot attach Reactor to itself");
+		}
+		if (this[_children].has(parent)) {
+			throw new Error("Cannot attach Reactor to its child");
+		}
 		if (parent instanceof Reactor) {
 			// Set new parent, add this to new parent's child set, and recalculate value
 			parent[_addchild](this);
