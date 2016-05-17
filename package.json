@@ -1,7 +1,7 @@
 {
   "name": "rnr",
   "version": "0.1.0",
-  "description": "A small reactive data and utility library",
+  "description": "A cascading reactive data library",
   "main": "dist/rnr.cjs.js",
   "jsnext:main": "dist/rnr.js",
   "config": "",
@@ -13,10 +13,18 @@
     "postbuild:iife": "tools/strip.sh dist/rnr.iife.js",
     "prebuild": "npm run clean -s",
     "build": "npm run build:es6 && npm run build:cjs && npm run build:iife",
-    "test": "node_modules/.bin/mocha"
+    "test": "node_modules/.bin/mocha",
+    "postinstall": "npm run build && npm run test"
   },
-  "author": "Raymond Neilson",
-  "license": "ISC",
+  "author": "Raymond Neilson <rneilson@interloper.ca> (https://github.com/rneilson)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rneilson/rnr.js.git"
+  },
+  "engines": {
+    "node": ">=6.0"
+  },
   "devDependencies": {
     "chai": "^3.5.0",
     "mocha": "^2.4.5",
