@@ -160,13 +160,14 @@ describe('Reactor', function() {
 			b = a.then();
 
 			expect(b).to.be.an.instanceof(rnr.Reactor);
+			expect(b).to.not.equal(a);
 		});
 
 		it('should add the child to its parent\'s child set', function() {
 
 			var children = a.children;
 
-			expect(children).to.include(b);
+			expect(children).to.include.members([b]);
 		});
 
 		it('should add another child when called again on the parent', function() {
@@ -177,8 +178,7 @@ describe('Reactor', function() {
 			});
 			var children = a.children;
 
-			expect(children).to.include(b);
-			expect(children).to.include(c);
+			expect(children).to.include.members([b, c]);
 		});
 
 		it('should have its parent\'s current value if no thenfn given', function() {
@@ -215,7 +215,7 @@ describe('Reactor', function() {
 				return x + 2;
 			});
 
-			expect(c.children).to.include(d);
+			expect(c.children).to.include.members([d]);
 		});
 
 		it('should update its child\'s value when its parent updates it', function() {
@@ -328,16 +328,103 @@ describe('Reactor', function() {
 			expect(c.value).to.equal(2);
 		});
 
-		it('should autocancel when set if all children are cancelled');
+		it('should autocancel when set if all children are cancelled', function() {
 
-		it('should call finalfn with the value passed to set() if autocancelling');
+			var a = rnr.cr();
+			var b = a.then();
+			var c = a.then();
+			b.cancel();
+			c.cancel();
+			a.set(1);
 
-		it('should autocancel its children when set() called if their children are all cancelled');
+			expect(a.done).to.be.true;
+		});
 
-		it('should remove cancelled children when set if any children still active');
+		it('should autocancel its children when set() called if their children are all cancelled', function() {
+
+			var a = rnr.cr(0);
+			var b = a.then();
+			var c = b.then();
+			c.cancel();
+			a.set(1);
+
+			expect(a.done).to.be.true;
+			expect(b.done).to.be.true;
+		});
+
+		it('should call finalfn with the value passed to set() if autocancelling', function() {
+
+			var final = 0;
+			var a = rnr.cr(0, null, function(x) {
+				final = x;
+			});
+			var b = a.then();
+			b.cancel();
+			a.set(1);
+
+			expect(final).to.equal(1);
+		});
+
+		it('should remove cancelled children when set if any children still active', function() {
+
+			var a = rnr.cr();
+			var b = a.then();
+			var c = a.then();
+			c.cancel();
+			a.set(1);
+			var children = a.children;
+
+			expect(a.done).to.be.false;
+			expect(b.done).to.be.false;
+			expect(children).to.include.members([b]);
+			expect(children).to.not.include.members([c]);
+		});
 	});
 
-	describe.skip('finally()', function(){});
+	describe('finally()', function() {
+
+		var a = rnr.cr(0);
+		var b, c, d;
+
+		it('should return a new Reactor instance', function() {
+
+			b = a.finally();
+
+			expect(b).to.be.an.instanceof(rnr.Reactor);
+			expect(b).to.not.equal(a);
+		});
+
+		it('should add the child to its parent\'s child set', function() {
+
+			expect(a.children).to.include.members([b]);
+		});
+
+		it('should add another child when called again on the parent', function() {
+
+			c = a.finally();
+
+			expect(a.children).to.include.members([b, c]);
+		});
+
+		it('should have its parent\'s final value when cancelled if no finalfn given', function() {
+
+			a.cancel(1);
+
+			expect(b.value).to.equal(1);
+			expect(c.value).to.equal(1);
+		});
+
+		it('should have the result of finalfn called with its parent\'s final value when cancelled', function() {
+
+			a = rnr.cr();
+			b = a.finally(function(x) {
+				return x + 1;
+			})
+			a.cancel(1);
+
+			expect(b.value).to.equal(2);
+		});
+	});
 
 	describe.skip('persist()', function(){});
 
