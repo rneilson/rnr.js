@@ -5,6 +5,7 @@ import { funcOrNull } from './utils.js';
 // Symbols for private properties
 const _value = Symbol('_value');
 const _then = Symbol('_then');
+const _catch = Symbol('catch');
 const _finally = Symbol('_finally');
 const _active = Symbol('_active');
 const _done = Symbol('_done');
@@ -16,23 +17,17 @@ const _addchild = Symbol('_addchild');
 const _delchild = Symbol('_delchild');
 const _isactive = Symbol('_isactive');
 const _set = Symbol('_set');
+const _err = Symbol('_err');
+const _val = Symbol('_val');
 
 class Reactor {
-	constructor(newval, thenfn, finalfn) {
-		// Params thenfn and finalfn are optional
+	constructor(newval, thenfn, catchfn, finalfn) {
+		// Params thenfn, catchfn and finalfn are optional
 		// Must be functions if given, however
 
-		try {
-			this[_then] = funcOrNull(thenfn);
-		} catch (e) {
-			throw new Error("Param 'thenfn' must be a function");
-		}
-
-		try {
-			this[_finally] = funcOrNull(finalfn);
-		} catch (e) {
-			throw new Error("Param 'finalfn' must be a function");
-		}
+		this[_then] = funcOrNull(thenfn, 'thenfn');
+		this[_catch] = funcOrNull(catchfn, 'catchfn');
+		this[_finally] = funcOrNull(finalfn, 'finalfn');
 
 		// Initial value
 		var initval;
@@ -141,17 +136,20 @@ class Reactor {
 		return this.cancel(val);
 	}
 
-	// Returns new reactor with given thenfn and/or finalfn
-	then (thenfn, finalfn) {
+	// Returns new reactor as child of this
+	then (thenfn, catchfn, finalfn) {
 		if (this[_done]) {
 			throw new Error("Cannot cascade from cancelled");
 		}
-		return new Reactor(this, thenfn, finalfn);
+		return new Reactor(this, thenfn, catchfn, finalfn);
 	}
 
-	// Returns new reactor with no thenfn and given finalfn
+	catch (catchfn, finalfn) {
+		return this.then(null, catchfn, finalfn)
+	}
+
 	finally (finalfn) {
-		return this.then(null, finalfn);
+		return this.then(null, null, finalfn);
 	}
 
 	// Cancels reactor and cascades
@@ -271,30 +269,89 @@ class Reactor {
 		return this[_active] = active;
 	}
 
-	[_set] (val) {
-		// Can assume if called that:
-		// - _isactive() has already been called this sweep
-		// - we can run thenfn safely
-		// - we can cancel and remove inactive children
-		var oldval = this[_value];
-		// Only run thenfn if val not undefined
-		var newval = ((val !== undefined) && (this[_then] !== null)) ? this[_then](val, oldval) : val;
-		// Set and pass along the raw value instead if newval is undefined
-		newval = (newval !== undefined) ? newval : val;
+	// Can assume if _set, _err, or _val called that:
+	// - _isactive() has already been called this sweep
+	// - we can call _then safely
+	// - we can cancel and remove inactive children
 
+	[_set] (val) {
+		var oldval = this[_value];
+		var newval;
+		// Only call _then if val not undefined
+		if ((val !== undefined) && (this[_then] !== null)) {
+			try {
+				// Set and pass along the raw value instead if _then returns undefined
+				newval = this[_then](val, oldval);
+				newval = (newval !== undefined) ? newval : val;
+			}
+			catch (e) {
+				// If caught by self or children, return successfully
+				if (this[_err](e)) {
+					return this;
+				}
+				// Re-throw if error uncaught anywhere in tree
+				throw e;
+			}
+		}
+		else {
+			newval = val;
+		}
 		// Only triggers cascade if value actually changed
 		if (newval !== oldval) {
-			this[_value] = newval;
+			this[_val](newval);
+		}
+		return this;
+	}
+
+	[_err] (err) {
+		var oldval = this[_value];
+		var valOrErr;
+		var caught = false;
+		if (this[_catch] !== null) {
+			try {
+				// Call _catch and set value to result if successful
+				valOrErr = this[_catch](err, oldval);
+				caught = true;
+			}
+			catch (e) {
+				// Pass along new error if _catch re-throws
+				valOrErr = e;
+			}
+		}
+		else {
+			valOrErr = err;
+		}
+
+		if (caught) {
+			// Set and pass along new value
+			this[_val](valOrErr);
+		}
+		else if (this[_children].size > 0) {
+			// Pass along error to children
 			for (let child of this[_children]) {
 				if (child[_active]) {
-					child[_set](newval);
+					if (child[_err](valOrErr)) {
+						caught = true;
+					}
 				}
 				else {
-					this[_delchild](child.cancel(newval));
+					this[_delchild](child.cancel(val));
 				}
 			}
 		}
-		return this;
+		return caught;
+	}
+
+	[_val] (val) {
+		this[_value] = val;
+		for (let child of this[_children]) {
+			if (child[_active]) {
+				child[_set](val);
+			}
+			else {
+				this[_delchild](child.cancel(val));
+			}
+		}
 	}
 
 }

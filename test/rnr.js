@@ -226,6 +226,123 @@ describe('Reactor', function() {
 			expect(d.value).to.equal(4);
 		});
 
+		it('should throw if thenfn throws, and error is uncaught by self or children', function() {
+
+			a = rnr.cr(0, function(x) {
+				if (x === 1) {
+					throw new Error('thenfn');
+				}
+			});
+
+			expect(function() {
+				a.set(1);
+			}).to.throw(/thenfn/);
+		});
+
+		it('should call catchfn if thenfn throws if catchfn given', function() {
+
+			counter = 0;
+			b = rnr.cr(0, function(x) {
+				if (x === 1) {
+					throw new Error('thenfn');
+				}
+			}, function(e) {
+				counter++;
+			});
+			b.set(1);
+
+			expect(counter).to.equal(1);
+		});
+
+		it('should pass the error to its children if no catchfn given', function() {
+
+			counter = 0;
+			b = a.then(null, function(e) {
+				counter++;
+			});
+			a.set(1);
+
+			expect(counter).to.equal(1);
+		});
+
+		it('should set the value to the result of catchfn', function() {
+
+			b = a.then(null, function(e) {
+				return 2;
+			});
+			a.set(1);
+
+			expect(b.value).to.equal(2);
+		});
+
+		it('should pass the value to its children if catchfn returns without re-throwing', function() {
+
+			b = a.then(null, function(e) {
+				return 2;
+			});
+			c = b.then();
+			a.set(1);
+
+			expect(c.value).to.equal(2);
+		});
+	});
+
+	describe('catch()', function() {
+
+		var a = rnr.cr(0);
+		var b, c, d;
+
+		it('should return a new Reactor instance', function() {
+
+			b = a.catch();
+
+			expect(b).to.be.an.instanceof(rnr.Reactor);
+			expect(b).to.not.equal(a);
+		});
+
+		it('should add the child to its parent\'s child set', function() {
+
+			expect(a.children).to.include.members([b]);
+		});
+
+		it('should add another child when called again on the parent', function() {
+
+			c = a.catch();
+
+			expect(a.children).to.include.members([b, c]);
+		});
+
+		it('should be updated when its parent is set to a new value without throwing', function() {
+
+			a.set(1);
+
+			expect(b.value).to.equal(1);
+			expect(c.value).to.equal(1);
+		});
+
+		it('should call catchfn if parent passes error', function() {
+			var counter = 0;
+			a = rnr.cr(0, function(x) {
+				if (x === 1) {
+					throw new Error('thenfn');
+				}
+			});
+			b = a.catch(function(e) {
+				counter++;
+			});
+			a.set(1);
+
+			expect(counter).to.equal(1);
+		});
+
+		it('should set the value to the result of catchfn', function() {
+			c = a.catch(function(e) {
+				return 2;
+			});
+			a.set(1);
+
+			expect(c.value).to.equal(2);
+		});
 	});
 
 	describe('cancel()', function() {
@@ -249,7 +366,7 @@ describe('Reactor', function() {
 		it('should call finalfn when cancelled', function() {
 
 			var counter = 0;
-			var a = rnr.cr(0, null, function() {
+			var a = rnr.cr(0, null, null, function() {
 				counter++;
 			});
 			a.cancel();
@@ -272,7 +389,7 @@ describe('Reactor', function() {
 		it('should call finalfn with finalval and oldval', function() {
 
 			var prevval, currval;
-			var a = rnr.cr(0, null, function(final, old) {
+			var a = rnr.cr(0, null, null, function(final, old) {
 				currval = final;
 				prevval = old;
 			});
@@ -317,7 +434,7 @@ describe('Reactor', function() {
 
 		it('should pass the result of finalfn to its children when cancelled', function() {
 
-			var a = rnr.cr(0, null, function(x) {
+			var a = rnr.cr(0, null, null, function(x) {
 				return x + 1;
 			});
 			var b = a.then();
@@ -355,7 +472,7 @@ describe('Reactor', function() {
 		it('should call finalfn with the value passed to set() if autocancelling', function() {
 
 			var final = 0;
-			var a = rnr.cr(0, null, function(x) {
+			var a = rnr.cr(0, null, null, function(x) {
 				final = x;
 			});
 			var b = a.then();
