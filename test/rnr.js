@@ -285,6 +285,22 @@ describe('Reactor', function() {
 
 			expect(c.value).to.equal(2);
 		});
+
+		it('should throw if child\'s catchfn re-throws', function() {
+
+			a = rnr.cr(0, function(x) {
+				if (x === 1) {
+					throw new Error('thenfn');
+				}
+			});
+			b = a.then(null, function(e) {
+				throw new Error('catchfn');
+			});
+
+			expect(function() {
+				a.set(1);
+			}).to.throw(/then/);
+		});
 	});
 
 	describe('catch()', function() {
