@@ -206,8 +206,8 @@ class Reactor {
 			}
 			return this.update(parent.value);
 		}
-		// This is now top of tree, set value and cascade as necessary
-		return this.update(parent);
+		// Throw if not reactor
+		throw new Error("Cannot attach to non-Reactor");
 	}
 
 	// Detach this from parent with optional auto-cancel if no children remain

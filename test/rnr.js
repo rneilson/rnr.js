@@ -660,6 +660,15 @@ describe('Reactor', function() {
 			}).to.throw(/Cannot attach/);
 		});
 
+		it('should throw if arg is not a Reactor', function() {
+
+			var a = rnr.cr(0);
+
+			expect(function() {
+				a.attach(1);
+			}).to.throw(/Cannot attach/);
+		});
+
 		it('should add it to new parent\'s child set', function() {
 
 			var a = rnr.cr();
@@ -694,14 +703,6 @@ describe('Reactor', function() {
 			var c = b.attach(a);
 
 			expect(c).to.equal(b);
-		});
-
-		it('should set the value to parent arg if arg is not a Reactor', function() {
-
-			var a = rnr.cr(0);
-			a.attach(1);
-
-			expect(a.value).to.equal(1);
 		});
 
 		it('should add multiple parents if called multiple times', function() {
