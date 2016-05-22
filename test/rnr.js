@@ -63,29 +63,29 @@ describe('Reactor', function() {
 
 	});
 
-	describe('set()', function() {
+	describe('update()', function() {
 
 		var counter = 0;
 		var a, b, c, d;
 
-		it('should update the value when set', function() {
+		it('should update the value when called', function() {
 
 			a = rnr.cr();
 
 			expect(a.value).to.be.undefined;
 
-			a.set(1);
+			a.update(1);
 
 			expect(a.value).to.equal(1);
 		});
 
-		it('should update the value each time it is set', function() {
+		it('should update the value each time it is called', function() {
 
-			a.set(2);
+			a.update(2);
 
 			expect(a.value).to.equal(2);
 
-			a.set('a');
+			a.update('a');
 
 			expect(a.value).to.equal('a');
 		});
@@ -102,14 +102,14 @@ describe('Reactor', function() {
 
 		it('should call thenfn when updated', function() {
 
-			b.set(0);
+			b.update(0);
 
 			expect(counter).to.equal(1);
 		});
 
 		it('should update the value with the output of thenfn', function() {
 
-			b.set(1);
+			b.update(1);
 
 			expect(b.value).to.equal(2);
 		});
@@ -117,7 +117,7 @@ describe('Reactor', function() {
 		it('should not call thenfn when the passed value is undefined', function() {
 
 			var tmpcount = counter;
-			b.set(undefined);
+			b.update(undefined);
 
 			expect(counter).to.equal(tmpcount);
 
@@ -128,7 +128,7 @@ describe('Reactor', function() {
 			c = rnr.cr(0, function() {
 				counter++;
 			});
-			c.set(1);
+			c.update(1);
 
 			expect(c.value).to.equal(1);
 		});
@@ -141,7 +141,7 @@ describe('Reactor', function() {
 				oldvalue = oldval;
 				return newval;
 			});
-			d.set(1);
+			d.update(1);
 
 			expect(newvalue).to.equal(1);
 			expect(oldvalue).to.equal(0);
@@ -191,10 +191,10 @@ describe('Reactor', function() {
 			expect(c.value).to.equal(a.value + 1);
 		});
 
-		it('should be updated when its parent is set to a new value', function() {
+		it('should be updated when its parent is updated to a new value', function() {
 
 			var tmpvalue = c.value;
-			a.set(2);
+			a.update(2);
 
 			expect(c.value).to.not.equal(tmpvalue);
 			expect(c.value).to.equal(a.value + 1);
@@ -204,7 +204,7 @@ describe('Reactor', function() {
 
 			var tmpcount = counter;
 			var tmpvalue = a.value;
-			a.set(tmpvalue);
+			a.update(tmpvalue);
 
 			expect(counter).to.equal(tmpcount);
 		});
@@ -220,7 +220,7 @@ describe('Reactor', function() {
 
 		it('should update its child\'s value when its parent updates it', function() {
 
-			a.set(1);
+			a.update(1);
 
 			expect(c.value).to.equal(2);
 			expect(d.value).to.equal(4);
@@ -235,7 +235,7 @@ describe('Reactor', function() {
 			});
 
 			expect(function() {
-				a.set(1);
+				a.update(1);
 			}).to.throw(/thenfn/);
 		});
 
@@ -249,7 +249,7 @@ describe('Reactor', function() {
 			}, function(e) {
 				counter++;
 			});
-			b.set(1);
+			b.update(1);
 
 			expect(counter).to.equal(1);
 		});
@@ -260,7 +260,7 @@ describe('Reactor', function() {
 			b = a.then(null, function(e) {
 				counter++;
 			});
-			a.set(1);
+			a.update(1);
 
 			expect(counter).to.equal(1);
 		});
@@ -270,7 +270,7 @@ describe('Reactor', function() {
 			b = a.then(null, function(e) {
 				return 2;
 			});
-			a.set(1);
+			a.update(1);
 
 			expect(b.value).to.equal(2);
 		});
@@ -281,7 +281,7 @@ describe('Reactor', function() {
 				return 2;
 			});
 			c = b.then();
-			a.set(1);
+			a.update(1);
 
 			expect(c.value).to.equal(2);
 		});
@@ -298,7 +298,7 @@ describe('Reactor', function() {
 			});
 
 			expect(function() {
-				a.set(1);
+				a.update(1);
 			}).to.throw(/then/);
 		});
 	});
@@ -328,9 +328,9 @@ describe('Reactor', function() {
 			expect(a.children).to.include.members([b, c]);
 		});
 
-		it('should be updated when its parent is set to a new value without throwing', function() {
+		it('should be updated when its parent is updated to a new value without throwing', function() {
 
-			a.set(1);
+			a.update(1);
 
 			expect(b.value).to.equal(1);
 			expect(c.value).to.equal(1);
@@ -346,7 +346,7 @@ describe('Reactor', function() {
 			b = a.catch(function(e) {
 				counter++;
 			});
-			a.set(1);
+			a.update(1);
 
 			expect(counter).to.equal(1);
 		});
@@ -355,7 +355,7 @@ describe('Reactor', function() {
 			c = a.catch(function(e) {
 				return 2;
 			});
-			a.set(1);
+			a.update(1);
 
 			expect(c.value).to.equal(2);
 		});
@@ -363,7 +363,7 @@ describe('Reactor', function() {
 
 	describe('cancel()', function() {
 
-		it('should set as done when cancelled', function() {
+		it('should be done when cancelled', function() {
 
 			var a = rnr.cr();
 			a.cancel();
@@ -371,7 +371,7 @@ describe('Reactor', function() {
 			expect(a.done).to.be.true;
 		});
 
-		it('should set the given final value when cancelled', function() {
+		it('should have the given final value when cancelled', function() {
 
 			var a = rnr.cr(0);
 			a.cancel(1);
@@ -468,24 +468,24 @@ describe('Reactor', function() {
 			var c = a.then();
 			b.cancel();
 			c.cancel();
-			a.set(1);
+			a.update(1);
 
 			expect(a.done).to.be.true;
 		});
 
-		it('should autocancel its children when set() called if their children are all cancelled', function() {
+		it('should autocancel its children when update() called if their children are all cancelled', function() {
 
 			var a = rnr.cr(0);
 			var b = a.then();
 			var c = b.then();
 			c.cancel();
-			a.set(1);
+			a.update(1);
 
 			expect(a.done).to.be.true;
 			expect(b.done).to.be.true;
 		});
 
-		it('should call finalfn with the value passed to set() if autocancelling', function() {
+		it('should call finalfn with the value passed to update() if autocancelling', function() {
 
 			var final = 0;
 			var a = rnr.cr(0, null, null, function(x) {
@@ -493,7 +493,7 @@ describe('Reactor', function() {
 			});
 			var b = a.then();
 			b.cancel();
-			a.set(1);
+			a.update(1);
 
 			expect(final).to.equal(1);
 		});
@@ -504,7 +504,7 @@ describe('Reactor', function() {
 			var b = a.then();
 			var c = a.then();
 			c.cancel();
-			a.set(1);
+			a.update(1);
 			var children = a.children;
 
 			expect(a.done).to.be.false;
@@ -612,7 +612,7 @@ describe('Reactor', function() {
 			a.persist();
 			b = a.then();
 			b.cancel();
-			a.set(1);
+			a.update(1);
 
 			expect(a.done).to.be.false;
 			expect(a.children).to.have.lengthOf(0);
@@ -623,7 +623,7 @@ describe('Reactor', function() {
 			b = a.then().persist();
 			c = b.then();
 			c.cancel();
-			a.set(1);
+			a.update(1);
 
 			expect(a.done).to.be.false;
 			expect(a.children).to.include.members([b]);
@@ -720,10 +720,10 @@ describe('Reactor', function() {
 			expect(c.value).to.equal(2);
 			expect(b.children).to.include.members([c]);
 
-			a.set(3);
+			a.update(3);
 			expect(c.value).to.equal(3);
 
-			b.set(4);
+			b.update(4);
 			expect(c.value).to.equal(4);
 		});
 	});
@@ -848,11 +848,11 @@ describe('Reactor', function() {
 
 		it('should update when any parent set', function() {
 
-			a.set(3);
+			a.update(3);
 
 			expect(c.value).to.equal(3);
 
-			b.set(4);
+			b.update(4);
 
 			expect(c.value).to.equal(4);
 		});
@@ -884,11 +884,11 @@ describe('Reactor', function() {
 
 		it('should update when any parent set', function() {
 
-			a.set(3);
+			a.update(3);
 
 			expect(c.value).to.eql([3, 2]);
 
-			b.set(4);
+			b.update(4);
 
 			expect(c.value).to.eql([3, 4]);
 		});

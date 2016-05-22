@@ -16,7 +16,7 @@ const _children = Symbol('_children');
 const _addchild = Symbol('_addchild');
 const _delchild = Symbol('_delchild');
 const _isactive = Symbol('_isactive');
-const _set = Symbol('_set');
+const _upd = Symbol('_upd');
 const _err = Symbol('_err');
 const _val = Symbol('_val');
 
@@ -78,7 +78,7 @@ class Reactor {
 	}
 
 	// Creates new reactor with multiple parents, with value equal to array of parent values
-	// Parents which are reactors will be attached to, and each set() will update the returned array
+	// Parents which are reactors will be attached to, and each update() will update the returned array
 	// Parents which are objects with a .value property will be included by reference
 	// Parents which are raw values will be included in output as constants
 	static all(...parents) {
@@ -105,7 +105,7 @@ class Reactor {
 			}
 		}
 		// Get initial values from parents
-		newcr.set(true);
+		newcr.update(true);
 		return newcr;
 	}
 
@@ -125,13 +125,13 @@ class Reactor {
 		return Array.from(this[_children]);
 	}
 
-	// Checks if any children are active, then sets or cancels accordingly
-	set (val) {
+	// Checks if any children are active, then updates or cancels accordingly
+	update (val) {
 		if (this[_done]) {
 			return this;
 		}
 		if (this[_isactive]()) {
-			return this[_set](val);
+			return this[_upd](val);
 		}
 		return this.cancel(val);
 	}
@@ -204,10 +204,10 @@ class Reactor {
 			if (skipset) {
 				return this;
 			}
-			return this.set(parent.value);
+			return this.update(parent.value);
 		}
 		// This is now top of tree, set value and cascade as necessary
-		return this.set(parent);
+		return this.update(parent);
 	}
 
 	// Detach this from parent with optional auto-cancel if no children remain
@@ -269,12 +269,12 @@ class Reactor {
 		return this[_active] = active;
 	}
 
-	// Can assume if _set, _err, or _val called that:
+	// Can assume if _upd, _err, or _val called that:
 	// - _isactive() has already been called this sweep
 	// - we can call _then safely
 	// - we can cancel and remove inactive children
 
-	[_set] (val) {
+	[_upd] (val) {
 		var oldval = this[_value];
 		var newval;
 		// Only call _then if val not undefined
@@ -346,7 +346,7 @@ class Reactor {
 		this[_value] = val;
 		for (let child of this[_children]) {
 			if (child[_active]) {
-				child[_set](val);
+				child[_upd](val);
 			}
 			else {
 				this[_delchild](child.cancel(val));
