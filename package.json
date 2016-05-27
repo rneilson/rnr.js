@@ -14,7 +14,7 @@
     "prebuild": "npm run clean -s",
     "build": "npm run build:es6 && npm run build:cjs && npm run build:iife",
     "test": "node_modules/.bin/mocha",
-    "postinstall": "mkdir dist && npm run build && npm run test"
+    "postinstall": "mkdir dist && npm run build"
   },
   "author": "Raymond Neilson <rneilson@interloper.ca> (https://github.com/rneilson)",
   "license": "Apache-2.0",
@@ -27,8 +27,9 @@
   },
   "devDependencies": {
     "chai": "^3.5.0",
-    "mocha": "^2.4.5",
-    "rollup": "^0.26.3",
-    "rollup-plugin-json": "^2.0.0"
+    "mocha": "^2.4.5"
+  },
+  "dependencies": {
+    "rollup": "^0.26.3"
   }
 }
