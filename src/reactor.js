@@ -125,17 +125,6 @@ class Reactor {
 		return Array.from(this[_children]);
 	}
 
-	// Checks if any children are active, then updates or cancels accordingly
-	update (val) {
-		if (this[_done]) {
-			return this;
-		}
-		if (this[_isactive]()) {
-			return this[_upd](val);
-		}
-		return this.cancel(val);
-	}
-
 	// Returns new reactor as child of this
 	then (thenfn, catchfn, finalfn) {
 		if (this[_done]) {
@@ -150,6 +139,28 @@ class Reactor {
 
 	finally (finalfn) {
 		return this.then(null, null, finalfn);
+	}
+
+	// Checks if any children are active, then updates or cancels accordingly
+	update (val) {
+		if (this[_done]) {
+			return this;
+		}
+		if (this[_isactive]()) {
+			return this[_upd](val);
+		}
+		return this.cancel(val);
+	}
+
+	// Checks if any children are active, then passes error value or cancels accordingly
+	error (val) {
+		if (this[_done]) {
+			return this;
+		}
+		if (this[_isactive]()) {
+			return this[_err](val);
+		}
+		return this.cancel(val);
 	}
 
 	// Cancels reactor and cascades

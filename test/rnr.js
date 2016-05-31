@@ -361,6 +361,64 @@ describe('Reactor', function() {
 		});
 	});
 
+	describe('error()', function() {
+
+		it('should not update the value to given val if no catchfn', function() {
+
+			var a = rnr.cr(0);
+
+			expect(a.value).to.equal(0);
+
+			a.error(1);
+
+			expect(a.value).to.equal(0);
+		});
+
+		it('should call catchfn with given val', function() {
+
+			var counter = 0;
+			var a = rnr.cr(0, null, function(e) {
+				counter++;
+			});
+			a.error(1);
+
+			expect(counter).to.equal(1);
+		});
+
+		it('should update the value to the output of catchfn', function() {
+
+			var a = rnr.cr(0, null, function(x) {
+				return x + 1;
+			});
+			a.error(1);
+
+			expect(a.value).to.equal(2);
+		});
+
+		it('should pass the value to its children if caught', function() {
+
+			var a = rnr.cr(0, null, function(x) {
+				return x + 1;
+			});
+			var b = a.then();
+			a.error(1);
+
+			expect(b.value).to.equal(2);
+		});
+
+		it('should call its childrens\' _err() if no catchfn', function() {
+
+			var counter = 0;
+			var a = rnr.cr(0);
+			var b = a.catch(function(e) {
+				counter++;
+			});
+			a.error(1);
+
+			expect(counter).to.equal(1);
+		});
+	});
+
 	describe('cancel()', function() {
 
 		it('should be done when cancelled', function() {

@@ -64,32 +64,56 @@ Parameter | Description
 `catchfn` | Function to call if `thenfn` throws, or an uncaught error is passed down from parent.
 `finalfn` | Function to call when `cancel()` method is called directly or by parent.
 
-### Reactor details
+### Reactor properties
 
-Property | Description
--------- | -----------
-`value` | Read-only getter; Reactor's current value.
-`done` | Read-only getter; `true` if Reactor has been cancelled, `false` otherwise.
-`persistent` | Read-only getter; `true` if `persist()` method called on this Reactor, `false` otherwise.
-`children` | Read-only getter; array of Reactor's current children (returns new array when accessed).
+`value`
+Read-only getter; Reactor's current value.
 
-Method | Description
------- | -----------
-`then(thenfn, catchfn, finalfn)` | Returns new Reactor as child.
-`catch(catchfn, finalfn)` | Equivalent to then(null, catchfn, finalfn).
-`finally(finalfn)` | Equivalent to then(null, null, finalfn).
-`update(val)` | Calls `thenfn` if present, stores returned value (or given if no `thenfn`), and updates children.
-`cancel(val)` | Calls `finalfn` if present, stores returned value (or given if no `finalfn`), and cancels children.
-`attach(parent, skipset)` | Adds Reactor as child of parent; will not initialize with parent's current value if `skipset` is `true`.
-`detach(parent, autocancel)` | Removes Reactor as child of `parent`; will call `cancel()` on parent if `autocancel` is `true` and no children of `parent` remain.
-`clear(cancel, final)` | Removes all children from Reactor; will call `cancel(final)` on children if `cancel` is `true`.
+`done`
+Read-only getter; `true` if Reactor has been cancelled, `false` otherwise.
+
+`persistent`
+Read-only getter; `true` if `persist()` method called on this Reactor, `false` otherwise.
+
+`children`
+Read-only getter; array of Reactor's current children (returns new array when accessed).
+
+### Reactor methods
+
+`then(thenfn, catchfn, finalfn)`
+Returns new Reactor as child.
+
+`catch(catchfn, finalfn)`
+Equivalent to then(null, catchfn, finalfn).
+
+`finally(finalfn)`
+Equivalent to then(null, null, finalfn).
+
+`update(val)`
+Calls `thenfn` if present, stores returned value (or given if no `thenfn`), and updates children.
+
+`error(val)`
+Calls `catchfn` if present, stores returned value (if `catchfn`) and updates children. If no `catchfn`, calls `error(val)` on children.
+
+`cancel(val)`
+Calls `finalfn` if present, stores returned value (or given if no `finalfn`), and cancels children.
+
+`attach(parent, skipset)`
+Adds Reactor as child of parent; will not initialize with parent's current value if `skipset` is `true`.
+
+`detach(parent, autocancel)`
+Removes Reactor as child of `parent`; will call `cancel()` on parent if `autocancel` is `true` and no children of `parent` remain.
+
+`clear(cancel, final)`
+Removes all children from Reactor; will call `cancel(final)` on children if `cancel` is `true`.
 
 ### Reactor static methods
 
-Method | Description
------- | -----------
-`Reactor.any(...parents)` | Returns new Reactor with multiple parents, which is updated when any parent is updated; value is the latest value passed by any parent.
-`Reactor.all(...parents)` | Returns new Reactor with multiple parents, which is updated when any parent is updated; value is an array of the current values of all parents.
+`Reactor.any(...parents)`
+Returns new Reactor with multiple parents, which is updated when any parent is updated; value is the latest value passed by any parent.
+
+`Reactor.all(...parents)`
+Returns new Reactor with multiple parents, which is updated when any parent is updated; value is an array of the current values of all parents.
 
 Alternate syntaxes:
 ```
