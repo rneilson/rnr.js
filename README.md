@@ -66,45 +66,45 @@ Parameter | Description
 
 ### Reactor properties
 
-`value`
+`value`  
 Read-only getter; Reactor's current value.
 
-`done`
+`done`  
 Read-only getter; `true` if Reactor has been cancelled, `false` otherwise.
 
-`persistent`
+`persistent`  
 Read-only getter; `true` if `persist()` method called on this Reactor, `false` otherwise.
 
-`children`
+`children`  
 Read-only getter; array of Reactor's current children (returns new array when accessed).
 
 ### Reactor methods
 
-`then(thenfn, catchfn, finalfn)`
+`then(thenfn, catchfn, finalfn)`  
 Returns new Reactor as child.
 
-`catch(catchfn, finalfn)`
+`catch(catchfn, finalfn)`  
 Equivalent to then(null, catchfn, finalfn).
 
-`finally(finalfn)`
+`finally(finalfn)`  
 Equivalent to then(null, null, finalfn).
 
-`update(val)`
+`update(val)`  
 Calls `thenfn` if present, stores returned value (or given if no `thenfn`), and updates children.
 
-`error(val)`
+`error(val)`  
 Calls `catchfn` if present, stores returned value (if `catchfn`) and updates children. If no `catchfn`, calls `error(val)` on children.
 
-`cancel(val)`
+`cancel(val)`  
 Calls `finalfn` if present, stores returned value (or given if no `finalfn`), and cancels children.
 
-`attach(parent, skipset)`
+`attach(parent, skipset)`  
 Adds Reactor as child of parent; will not initialize with parent's current value if `skipset` is `true`.
 
-`detach(parent, autocancel)`
+`detach(parent, autocancel)`  
 Removes Reactor as child of `parent`; will call `cancel()` on parent if `autocancel` is `true` and no children of `parent` remain.
 
-`clear(cancel, final)`
+`clear(cancel, final)`  
 Removes all children from Reactor; will call `cancel(final)` on children if `cancel` is `true`.
 
 ### Reactor static methods
