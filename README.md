@@ -90,13 +90,13 @@ Equivalent to then(null, catchfn, finalfn).
 Equivalent to then(null, null, finalfn).
 
 `update(val)`  
-Calls `thenfn` if present, stores returned value (or given if no `thenfn`), and updates children.
+Calls `thenfn` if present, stores returned value (or given if no `thenfn`), and updates children. All Reactors in the tree will be locked while updating; additional calls to update() or error() during the update sequence will be ignored.
 
 `error(val)`  
-Calls `catchfn` if present, stores returned value (if `catchfn`) and updates children. If no `catchfn`, calls `error(val)` on children.
+Calls `catchfn` if present, stores returned value (if `catchfn`) and updates children. If no `catchfn`, calls `error(val)` on children. All Reactors in the tree will be locked while updating; additional calls to update() or error() during the update sequence will be ignored.
 
 `cancel(val)`  
-Calls `finalfn` if present, stores returned value (or given if no `finalfn`), and cancels children.
+Calls `finalfn` if present, stores returned value (or given if no `finalfn`), and cancels children. This does **not** lock Reactors in the tree, and thus may be called during the update sequence.
 
 `attach(parent, skipset)`  
 Adds Reactor as child of parent; will not initialize with parent's current value if `skipset` is `true`.

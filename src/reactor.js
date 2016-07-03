@@ -11,6 +11,7 @@ const _active = Symbol('_active');
 const _done = Symbol('_done');
 const _persist = Symbol('_persist');
 const _children = Symbol('_children');
+const _locked = Symbol('_locked');
 
 // Symbols for private methods
 const _addchild = Symbol('_addchild');
@@ -58,6 +59,9 @@ class Reactor {
 			// Value will be undefined if initval is
 			this[_value] = initval;
 		}
+
+		// Lock during updates and error propagation
+		this[_locked] = false;
 
 		// Set active, default non-persistent
 		this[_active] = true;
@@ -143,7 +147,8 @@ class Reactor {
 
 	// Checks if any children are active, then updates or cancels accordingly
 	update (val) {
-		if (this[_done]) {
+		// Return without modification if done or currently locked
+		if (this[_done] || this[_locked]) {
 			return this;
 		}
 		if (this[_isactive]()) {
@@ -154,7 +159,8 @@ class Reactor {
 
 	// Checks if any children are active, then passes error value or cancels accordingly
 	error (val) {
-		if (this[_done]) {
+		// Return without modification if done or currently locked
+		if (this[_done] || this[_locked]) {
 			return this;
 		}
 		if (this[_isactive]()) {
@@ -284,8 +290,10 @@ class Reactor {
 	// - _isactive() has already been called this sweep
 	// - we can call _then safely
 	// - we can cancel and remove inactive children
+	// - we can lock while calling _upd or _err
 
 	[_upd] (val) {
+		this[_locked] = true;
 		var oldval = this[_value];
 		var newval;
 		// Only call _then if val not undefined
@@ -298,6 +306,7 @@ class Reactor {
 			catch (e) {
 				// If caught by self or children, return successfully
 				if (this[_err](e)) {
+					this[_locked] = false;
 					return this;
 				}
 				// Re-throw if error uncaught anywhere in tree
@@ -311,10 +320,12 @@ class Reactor {
 		if (newval !== oldval) {
 			this[_val](newval);
 		}
+		this[_locked] = false;
 		return this;
 	}
 
 	[_err] (err) {
+		this[_locked] = true;
 		var oldval = this[_value];
 		var valOrErr;
 		var caught = false;
@@ -350,6 +361,7 @@ class Reactor {
 				}
 			}
 		}
+		this[_locked] = false;
 		return caught;
 	}
 
