@@ -1,6 +1,6 @@
 {
   "name": "rnr",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A cascading reactive data library",
   "main": "dist/rnr.cjs.js",
   "jsnext:main": "dist/rnr.js",
@@ -30,6 +30,6 @@
     "mocha": "^2.4.5"
   },
   "dependencies": {
-    "rollup": "^0.26.3"
+    "rollup": "^0.33.0"
   }
 }
