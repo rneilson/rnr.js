@@ -4,9 +4,9 @@ import { funcOrNull } from './utils.js';
 
 // Symbols for private properties
 const _value = Symbol('_value');
-const _then = Symbol('_then');
-const _catch = Symbol('catch');
-const _finally = Symbol('_finally');
+const _updfn = Symbol('_updfn');
+const _errfn = Symbol('_errfn');
+const _canfn = Symbol('_canfn');
 const _active = Symbol('_active');
 const _done = Symbol('_done');
 const _persist = Symbol('_persist');
@@ -22,13 +22,13 @@ const _err = Symbol('_err');
 const _val = Symbol('_val');
 
 class Reactor {
-	constructor(newval, thenfn, catchfn, finalfn) {
-		// Params thenfn, catchfn and finalfn are optional
+	constructor(newval, updatefn, errorfn, cancelfn) {
+		// Params updatefn, errorfn and cancelfn are optional
 		// Must be functions if given, however
 
-		this[_then] = funcOrNull(thenfn, 'thenfn');
-		this[_catch] = funcOrNull(catchfn, 'catchfn');
-		this[_finally] = funcOrNull(finalfn, 'finalfn');
+		this[_updfn] = funcOrNull(updatefn, 'updatefn');
+		this[_errfn] = funcOrNull(errorfn, 'errorfn');
+		this[_canfn] = funcOrNull(cancelfn, 'cancelfn');
 
 		// Initial value
 		var initval;
@@ -49,10 +49,10 @@ class Reactor {
 		// Start with empty child list
 		this[_children] = new Set();
 
-		// Function thenfn run once if present
+		// Function updatefn run once if present
 		// and given/parent value isn't undefined
-		if ((initval !== undefined) && (this[_then] !== null)) {
-			this[_value] = this[_then](initval);
+		if ((initval !== undefined) && (this[_updfn] !== null)) {
+			this[_value] = this[_updfn](initval);
 		}
 		else {
 			// Nothing to run or nothing to be run on
@@ -130,19 +130,19 @@ class Reactor {
 	}
 
 	// Returns new reactor as child of this
-	then (thenfn, catchfn, finalfn) {
+	on (updatefn, errorfn, cancelfn) {
 		if (this[_done]) {
 			throw new Error("Cannot cascade from cancelled");
 		}
-		return new Reactor(this, thenfn, catchfn, finalfn);
+		return new Reactor(this, updatefn, errorfn, cancelfn);
 	}
 
-	catch (catchfn, finalfn) {
-		return this.then(null, catchfn, finalfn)
+	onerror (errorfn, cancelfn) {
+		return this.on(null, errorfn, cancelfn)
 	}
 
-	finally (finalfn) {
-		return this.then(null, null, finalfn);
+	oncancel (cancelfn) {
+		return this.on(null, null, cancelfn);
 	}
 
 	// Checks if any children are active, then updates or cancels accordingly
@@ -174,10 +174,10 @@ class Reactor {
 		if (this[_done]) {
 			return this;
 		}
-		// If finalfn is set, will be called with (final, value) before
+		// If cancelfn is set, will be called with (final, value) before
 		// passing result downward
-		var finalval = (this[_finally] !== null) ? this[_finally](final, this[_value]) : final;
-		// Reset finalval to final if _finally() returned undefined
+		var finalval = (this[_canfn] !== null) ? this[_canfn](final, this[_value]) : final;
+		// Reset finalval to final if _canfn() returned undefined
 		finalval = (finalval !== undefined) ? finalval : final;
 		this[_value] = finalval;
 
@@ -187,9 +187,9 @@ class Reactor {
 			child.cancel(finalval);
 		}
 
-		// Clear thenfn/finalfn, and mark cancelled
-		this[_then] = null;
-		this[_finally] = null;
+		// Clear updatefn/cancelfn, and mark cancelled
+		this[_updfn] = null;
+		this[_canfn] = null;
 		this[_active] = false;
 		this[_done] = true;
 		return this;
@@ -288,7 +288,7 @@ class Reactor {
 
 	// Can assume if _upd, _err, or _val called that:
 	// - _isactive() has already been called this sweep
-	// - we can call _then safely
+	// - we can call _updfn safely
 	// - we can cancel and remove inactive children
 	// - we can lock while calling _upd or _err
 
@@ -296,11 +296,11 @@ class Reactor {
 		this[_locked] = true;
 		var oldval = this[_value];
 		var newval;
-		// Only call _then if val not undefined
-		if ((val !== undefined) && (this[_then] !== null)) {
+		// Only call _updfn if val not undefined
+		if ((val !== undefined) && (this[_updfn] !== null)) {
 			try {
-				// Set and pass along the raw value instead if _then returns undefined
-				newval = this[_then](val, oldval);
+				// Set and pass along the raw value instead if _updfn returns undefined
+				newval = this[_updfn](val, oldval);
 				newval = (newval !== undefined) ? newval : val;
 			}
 			catch (e) {
@@ -329,14 +329,14 @@ class Reactor {
 		var oldval = this[_value];
 		var valOrErr;
 		var caught = false;
-		if (this[_catch] !== null) {
+		if (this[_errfn] !== null) {
 			try {
-				// Call _catch and set value to result if successful
-				valOrErr = this[_catch](err, oldval);
+				// Call _errfn and set value to result if successful
+				valOrErr = this[_errfn](err, oldval);
 				caught = true;
 			}
 			catch (e) {
-				// Pass along new error if _catch re-throws
+				// Pass along new error if _errfn re-throws
 				valOrErr = e;
 			}
 		}
