@@ -21,11 +21,6 @@ const _upd = Symbol('_upd');
 const _err = Symbol('_err');
 const _val = Symbol('_val');
 
-// Uncaught error handler
-var uncaughtError = function (err) {
-	console.log(err);
-}
-
 class Reactor {
 	constructor(newval, updatefn, errorfn, cancelfn) {
 		// Params updatefn, errorfn and cancelfn are optional
@@ -118,12 +113,6 @@ class Reactor {
 		return newcr;
 	}
 
-	// Uncaught error handler
-	static handleErr (err) {
-		// TODO: send event?
-		uncaughtError(err);
-	}
-
 	get value () {
 		return this[_value];
 	}
@@ -163,14 +152,8 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			try {
-				this[_upd](val);
-				return this;
-			}
-			catch (e) {
-				Reactor.handleErr(e);
-				return this;
-			}
+			this[_upd](val);
+			return this;
 		}
 		return this.cancel(val);
 	}
@@ -186,9 +169,8 @@ class Reactor {
 			if (this[_err](val)) {
 				return this;
 			}
-			// Forward to uncaught handler if not caught in tree (mirrors update() behavior)
-			Reactor.handleErr(val);
-			return this;
+			// Throw if not caught in tree (mirrors update() behavior)
+			throw val;
 		}
 		return this.cancel(val);
 	}
