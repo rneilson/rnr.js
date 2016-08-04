@@ -1,3 +1,5 @@
+import { Reactor } from './reactor.js';
+
 /* Utility functions */
 
 export function isCallable (fn) {
@@ -14,3 +16,6 @@ export function funcOrNull (fn, name) {
 	throw new Error(`Param ${name} must be a function`);
 }
 
+export function isThenable (obj) {
+	return typeof obj === 'object' && !(obj instanceof Reactor) && 'then' in obj;
+}

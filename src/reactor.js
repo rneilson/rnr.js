@@ -1,4 +1,4 @@
-import { funcOrNull } from './utils.js';
+import { funcOrNull, isThenable } from './utils.js';
 
 /* Cascading-reactor defs & helpers */
 
