@@ -152,7 +152,8 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			return this[_upd](val);
+			this[_upd](val);
+			return this;
 		}
 		return this.cancel(val);
 	}
@@ -164,7 +165,12 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			return this[_err](val);
+			// Return successfully if error caught
+			if (this[_err](val)) {
+				return this;
+			}
+			// Throw if not caught in tree (mirrors update() behavior)
+			throw val;
 		}
 		return this.cancel(val);
 	}
@@ -357,7 +363,8 @@ class Reactor {
 					}
 				}
 				else {
-					this[_delchild](child.cancel(val));
+					child.cancel(valOrErr);
+					this[_delchild](child);
 				}
 			}
 		}
@@ -372,7 +379,8 @@ class Reactor {
 				child[_upd](val);
 			}
 			else {
-				this[_delchild](child.cancel(val));
+				child.cancel(val);
+				this[_delchild](child);
 			}
 		}
 	}
