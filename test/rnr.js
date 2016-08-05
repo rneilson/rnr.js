@@ -236,12 +236,12 @@ describe('Reactor', function() {
 
 			a = rnr.cr(0, function(x) {
 				if (x === 1) {
-					throw 'updateerr';
+					throw 'updatefn';
 				}
 			});
 			a.update(1);
 
-			expect(a.value).to.equal('updateerr');
+			expect(a.value).to.equal('updatefn');
 		});
 
 		it('should have iserr property true if updatefn throws', function() {
@@ -269,10 +269,12 @@ describe('Reactor', function() {
 			counter = 0;
 			b = a.on(null, function(e) {
 				counter++;
+				return e;
 			});
 			a.update(1);
 
 			expect(counter).to.equal(1);
+			expect(b.value).to.equal('updatefn');
 		});
 
 		it('should set the value to the result of errorfn if its parent\'s updatefn throws', function() {
@@ -290,7 +292,7 @@ describe('Reactor', function() {
 			expect(b.iserr).to.be.false;
 		});
 
-		it('should pass the value to its children if errorfn returns a value', function() {
+		it('should pass the value returned from errorfn to its children', function() {
 
 			b = a.on(null, function(e) {
 				return 2;
@@ -421,7 +423,7 @@ describe('Reactor', function() {
 			expect(a.iserr).to.be.false;
 		});
 
-		it('should pass the value to its children if caught', function() {
+		it('should pass the value returned by errorfn to its children', function() {
 
 			a = rnr.cr(0, null, function(x) {
 				return x + 1;
@@ -442,6 +444,20 @@ describe('Reactor', function() {
 			a.error(1);
 
 			expect(counter).to.equal(1);
+		});
+
+		it('should call uncaught handler if no errorfn in it or its or children', function() {
+
+			a = rnr.cr(0);
+			b = a.on();
+
+			a.error(1);
+
+			expect(a.value).to.equal(1);
+			expect(a.iserr).to.be.true;
+			expect(b.value).to.equal(1);
+			expect(b.iserr).to.be.true;
+			expect(uncaught).to.equal(1);
 		});
 	});
 
