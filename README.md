@@ -4,6 +4,11 @@ A library for cascading reactive data in Javascript (ES6)
 **Please note**:
 The API has changed as of version **0.3.0**. Please update dependent code accordingly. These changes are intended to disambiguate Reactors from Promises for compatibility reasons. Additional Promise-specific handling is forthcoming in a future version.
 
+Changes as of **0.3.1**:
+- `errorfn` no longer called if `thenfn` of same Reactor throws; error value stored directly and `error()` called on children
+- value passed to `error()` and error thrown by `thenfn` now stored as value in Reactor in addition to cascading to children, with `iserr` property `true` to disambiguate from successful `update()` calls
+
+
 Changes as of **0.3.0**:
 - `then()` renamed to `on()`
 - `catch()` renamed to `onerror()`
