@@ -66,22 +66,25 @@ Parameter | Description
 --------- | -----------
 `initval` | Initial value *or* parent Reactor.
 `updatefn` | Function to call when updated. Unless `undefined`, Will be called with `initval`, or its `value` property if a Reactor.
-`errorfn` | Function to call if `updatefn` throws, if `error()` method is called, or if an uncaught error is passed down from parent.
+`errorfn` | Function to call if `error()` method is called, or if an uncaught error is passed down from parent.
 `cancelfn` | Function to call when `cancel()` method is called directly or by parent.
 
 ### Reactor properties
 
 `value`  
-Read-only getter; Reactor's current value.
+Read-only getter; this Reactor's current value.
+
+`iserr`  
+Read-only getter; `true` if `value` is an error thrown by `updatefn` or the result of `error()`, `false` otherwise.
 
 `done`  
-Read-only getter; `true` if Reactor has been cancelled, `false` otherwise.
+Read-only getter; `true` if this Reactor has been cancelled, `false` otherwise.
 
 `persistent`  
 Read-only getter; `true` if `persist()` method called on this Reactor, `false` otherwise.
 
 `children`  
-Read-only getter; array of Reactor's current children (returns new array when accessed).
+Read-only getter; array of this Reactor's current children (returns new array when accessed).
 
 ### Reactor methods
 
@@ -95,13 +98,13 @@ Equivalent to on(null, errorfn, cancelfn).
 Equivalent to on(null, null, cancelfn).
 
 `update(val)`  
-Calls `updatefn` if present, stores returned value (or given if no `updatefn`), and updates children. All Reactors in the tree will be locked while updating; additional calls to update() or error() during the update sequence will be ignored.
+Calls `updatefn` if present and stores returned value, stores `val` if no `updatefn` given or `updatefn` returns `undefined`, or stores error if `updatefn` throws; `update()` (or `error()` if `updatefn` throws) are then called on children. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
 
 `error(val)`  
-Calls `errorfn` if present, stores returned value (if `errorfn`) and updates children. If no `errorfn`, calls `error(val)` on children. All Reactors in the tree will be locked while updating; additional calls to update() or error() during the update sequence will be ignored.
+Calls `errorfn` if present, stores returned value if `errorfn` returns, and updates children. If no `errorfn`, stores `val` and calls `error(val)` on children. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
 
 `cancel(val)`  
-Calls `cancelfn` if present, stores returned value (or given if no `cancelfn`), and cancels children. This does **not** lock Reactors in the tree, and thus may be called during the update sequence.
+Calls `cancelfn` if present, stores returned value (or `val` if no `cancelfn` given), and cancels children. This does **not** lock Reactors in the tree, and thus may be called during the update sequence.
 
 `attach(parent, skipset)`  
 Adds Reactor as child of parent; will not initialize with parent's current value if `skipset` is `true`.
@@ -113,6 +116,9 @@ Removes Reactor as child of `parent`; will call `cancel()` on parent if `autocan
 Removes all children from Reactor; will call `cancel(final)` on children if `cancel` is `true`.
 
 ### Reactor static methods
+
+`Reactor.uncaught(errfn)`  
+Sets uncaught error handler function for all Reactor instances. Default is `null` (noop).
 
 `Reactor.any(...parents)`  
 Returns new Reactor with multiple parents, which is updated when any parent is updated; value is the latest value passed by any parent.
