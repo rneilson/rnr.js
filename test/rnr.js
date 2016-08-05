@@ -7,7 +7,7 @@ describe('Reactor', function() {
 
 	// Override default uncaught error handler
 	var uncaught;
-	rnr.Reactor.setuncaught(function(err) {
+	rnr.Reactor.uncaught(function(err) {
 		uncaught = err;
 	});
 

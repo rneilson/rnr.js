@@ -23,7 +23,14 @@ const _err = Symbol('_err');
 const _val = Symbol('_val');
 
 // Uncaught error handler (default noop)
-let uncaughterr = null;
+let uncaughthandler = null;
+
+// Calls uncaught error handler
+function uncaughterr (err) {
+	if (uncaughthandler !== null) {
+		uncaughthandler(err);
+	}
+}
 
 class Reactor {
 	constructor(newval, updatefn, errorfn, cancelfn) {
@@ -118,16 +125,9 @@ class Reactor {
 		return newcr;
 	}
 
-	// Calls uncaught error handler
-	static uncaught (err) {
-		if (uncaughterr !== null) {
-			uncaughterr(err);
-		}
-	}
-
 	// Sets uncaught error handler
-	static setuncaught (errfn) {
-		uncaughterr = funcOrNull(errfn, 'errfn');
+	static uncaught (errfn) {
+		uncaughthandler = funcOrNull(errfn, 'errfn');
 	}
 
 	get value () {
@@ -185,11 +185,7 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			if (!this[_err](val)) {
-				// Use default unhandled error func if not caught in tree (mirrors update() behavior)
-				Reactor.uncaught(val);
-			}
-			return this;
+			return this[_err](val);
 		}
 		return this.cancel(val);
 	}
@@ -395,7 +391,7 @@ class Reactor {
 			}
 			// Forward to uncaught handler if no children (end of branch)
 			else {
-				Reactor.uncaught(valOrErr);
+				uncaughterr(valOrErr);
 			}
 		}
 		this[_locked] = false;
