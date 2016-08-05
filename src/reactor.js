@@ -8,6 +8,7 @@ const _updfn = Symbol('_updfn');
 const _errfn = Symbol('_errfn');
 const _canfn = Symbol('_canfn');
 const _active = Symbol('_active');
+const _iserr = Symbol('_iserr');
 const _done = Symbol('_done');
 const _persist = Symbol('_persist');
 const _children = Symbol('_children');
@@ -20,6 +21,9 @@ const _isactive = Symbol('_isactive');
 const _upd = Symbol('_upd');
 const _err = Symbol('_err');
 const _val = Symbol('_val');
+
+// Uncaught error handler (default noop)
+let uncaughterr = null;
 
 class Reactor {
 	constructor(newval, updatefn, errorfn, cancelfn) {
@@ -65,6 +69,7 @@ class Reactor {
 
 		// Set active, default non-persistent
 		this[_active] = true;
+		this[_iserr] = false;
 		this[_done] = false;
 		this[_persist] = false;
 	}
@@ -113,8 +118,24 @@ class Reactor {
 		return newcr;
 	}
 
+	// Calls uncaught error handler
+	static uncaught (err) {
+		if (uncaughterr !== null) {
+			uncaughterr(err);
+		}
+	}
+
+	// Sets uncaught error handler
+	static setuncaught (errfn) {
+		uncaughterr = funcOrNull(errfn, 'errfn');
+	}
+
 	get value () {
 		return this[_value];
+	}
+
+	get iserr () {
+		return this[_iserr];
 	}
 
 	get done () {
@@ -152,8 +173,7 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			this[_upd](val);
-			return this;
+			return this[_upd](val);
 		}
 		return this.cancel(val);
 	}
@@ -165,12 +185,11 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			// Return successfully if error caught
-			if (this[_err](val)) {
-				return this;
+			if (!this[_err](val)) {
+				// Use default unhandled error func if not caught in tree (mirrors update() behavior)
+				Reactor.uncaught(val);
 			}
-			// Throw if not caught in tree (mirrors update() behavior)
-			throw val;
+			return this;
 		}
 		return this.cancel(val);
 	}
@@ -182,19 +201,28 @@ class Reactor {
 		}
 		// If cancelfn is set, will be called with (final, value) before
 		// passing result downward
-		var finalval = (this[_canfn] !== null) ? this[_canfn](final, this[_value]) : final;
+		var finalval, finalerr;
+		try {
+			finalval = (this[_canfn] !== null) ? this[_canfn](final, this[_value]) : final;
+			finalerr = false;
+		}
+		catch (e) {
+			finalval = e;
+			finalerr = true;
+		}
 		// Reset finalval to final if _canfn() returned undefined
 		finalval = (finalval !== undefined) ? finalval : final;
 		this[_value] = finalval;
+		this[_iserr] = finalerr;
 
-		var children = this[_children];
-		// Cascade to children (set skipdel to true regardless of passed arg)
-		for (let child of children) {
+		// Cascade to children
+		for (let child of this[_children]) {
 			child.cancel(finalval);
 		}
 
-		// Clear updatefn/cancelfn, and mark cancelled
+		// Clear funcs for GC (req'd?) and mark cancelled
 		this[_updfn] = null;
+		this[_errfn] = null;
 		this[_canfn] = null;
 		this[_active] = false;
 		this[_done] = true;
@@ -310,13 +338,8 @@ class Reactor {
 				newval = (newval !== undefined) ? newval : val;
 			}
 			catch (e) {
-				// If caught by self or children, return successfully
-				if (this[_err](e)) {
-					this[_locked] = false;
-					return this;
-				}
-				// Re-throw if error uncaught anywhere in tree
-				throw e;
+				// Set value to error, cascade (skips this' errfn)
+				return this[_err](e, true);
 			}
 		}
 		else {
@@ -330,50 +353,58 @@ class Reactor {
 		return this;
 	}
 
-	[_err] (err) {
+	[_err] (err, skipfn) {
 		this[_locked] = true;
-		var oldval = this[_value];
 		var valOrErr;
 		var caught = false;
-		if (this[_errfn] !== null) {
+		if (skipfn || this[_errfn] === null) {
+			valOrErr = err;
+		}
+		else {
 			try {
 				// Call _errfn and set value to result if successful
-				valOrErr = this[_errfn](err, oldval);
+				valOrErr = this[_errfn](err, this[_value]);
 				caught = true;
 			}
 			catch (e) {
-				// Pass along new error if _errfn re-throws
+				// Pass along new error if _errfn throws
 				valOrErr = e;
 			}
 		}
-		else {
-			valOrErr = err;
-		}
 
 		if (caught) {
-			// Set and pass along new value
+			// Set and cascade new value
 			this[_val](valOrErr);
 		}
-		else if (this[_children].size > 0) {
-			// Pass along error to children
-			for (let child of this[_children]) {
-				if (child[_active]) {
-					if (child[_err](valOrErr)) {
-						caught = true;
+		else {
+			// Set given value, mark as error
+			this[_value] = valOrErr;
+			this[_iserr] = true;
+
+			// Cascade error if children present
+			if (this[_children].size > 0) {
+				for (let child of this[_children]) {
+					if (child[_active]) {
+						child[_err](valOrErr);
+					}
+					else {
+						child.cancel(valOrErr);
+						this[_delchild](child);
 					}
 				}
-				else {
-					child.cancel(valOrErr);
-					this[_delchild](child);
-				}
+			}
+			// Forward to uncaught handler if no children (end of branch)
+			else {
+				Reactor.uncaught(valOrErr);
 			}
 		}
 		this[_locked] = false;
-		return caught;
+		return this;
 	}
 
 	[_val] (val) {
 		this[_value] = val;
+		this[_iserr] = false;
 		for (let child of this[_children]) {
 			if (child[_active]) {
 				child[_upd](val);
