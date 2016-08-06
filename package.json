@@ -1,6 +1,6 @@
 {
   "name": "rnr",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "A cascading reactive data library",
   "main": "dist/rnr.cjs.js",
   "jsnext:main": "dist/rnr.js",
