@@ -13,6 +13,9 @@ const _done = Symbol('_done');
 const _persist = Symbol('_persist');
 const _children = Symbol('_children');
 const _locked = Symbol('_locked');
+const _promise = Symbol('_promise');
+const _resolve = Symbol('_resolve');
+const _reject = Symbol('_reject');
 
 // Symbols for private methods
 const _addchild = Symbol('_addchild');
@@ -69,6 +72,8 @@ class Reactor {
 		// Function updatefn run once if present
 		// and given/parent value isn't undefined
 		if ((initval !== undefined) && (this[_updfn] !== null)) {
+			// TODO: run _errfn if iserr, wrap in try/catch
+			// TODO: or just call _upd?
 			this[_value] = this[_updfn](initval);
 		}
 		else {
@@ -76,6 +81,11 @@ class Reactor {
 			// Value will be undefined if initval is
 			this[_value] = initval;
 		}
+
+		// No initial promise
+		this[_promise] = null;
+		this[_resolve] = null;
+		this[_reject] = null;
 
 		// Lock during updates and error propagation
 		this[_locked] = false;
@@ -414,9 +424,23 @@ class Reactor {
 				}
 			}
 		}
-		// Forward to uncaught handler if no children (end of branch)
-		else if (iserr == true && val !== undefined) {
+		// Forward to uncaught handler if no children (end of branch) and no pending promise
+		else if (iserr == true && val !== undefined && this[_promise] === null) {
 			uncaughterr(val);
+		}
+
+		// Resolve/reject promise if pending
+		if (iserr !== undefined && this[_promise] !== null) {
+			if (iserr === false) {
+				this[_resolve](val);
+			}
+			else if (iserr === true) {
+				this[_reject](val);
+			}
+			// Clear promise and associated resolve/reject functions
+			this[_promise] = null;
+			this[_resolve] = null;
+			this[_reject] = null;
 		}
 
 		return this;
