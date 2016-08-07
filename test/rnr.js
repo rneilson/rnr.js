@@ -1,6 +1,9 @@
 /* Tests for reactor.js */
 
-var expect = require('chai').expect;
+var chai = require('chai');
+var chaiAsPromised = require('chai-as-promised');
+chai.use(chaiAsPromised);
+var expect = chai.expect;
 var rnr = require('../dist/rnr.cjs.js');
 
 describe('Reactor', function() {
@@ -995,6 +998,202 @@ describe('Reactor', function() {
 			b.update(4);
 
 			expect(c.value).to.eql([3, 4]);
+		});
+	});
+
+	describe('update() with promises', function(done) {
+
+		function promiser (q) {
+			q = q || {};
+			q.promise = new Promise(function (resolve, reject) {
+				q.resolve = resolve;
+				q.reject = reject;
+			});
+			return q;
+		}
+
+		var a, b, c, q, r, s;
+
+		it('should set value and iserr to undefined when called with a promise', function () {
+
+			a = rnr.cr();
+
+			expect(a.value).to.be.undefined;
+			expect(a.iserr).to.be.false;
+
+			q = promiser();
+			a.update(q.promise);
+
+			expect(a.value).to.be.undefined;
+			expect(a.iserr).to.be.undefined;
+		});
+
+		it('should have the value of the promise once resolved', function (done) {
+
+			q.resolve(1);
+			expect(q.promise.then(function(x) {
+				expect(a.value).to.equal(1);
+				return x;
+			})).to.eventually.equal(1).and.notify(done);
+		});
+
+		it('should have iserr equal false if promise resolved', function () {
+
+			expect(a.iserr).to.equal.false;
+		});
+
+		it('should have value and iserr undefined if update() called again with a new promise', function() {
+
+			q = promiser();
+			a.update(q.promise);
+			
+			expect(a.value).to.be.undefined;
+			expect(a.iserr).to.be.undefined;
+		});
+
+		it('should have the value of the promise once rejected', function(done) {
+
+			q.reject(2);
+			expect(q.promise.then(undefined, function(x) {
+				expect(a.value).to.equal(2);
+				return x;
+			})).to.eventually.equal(2).and.notify(done);
+		});
+
+		it('should have iserr equal true if promise rejected', function() {
+
+			expect(a.iserr).to.equal.true;
+		});
+
+		it('should update its children with value and iserr both undefined when update() called with a promise', function() {
+
+			a.update(0);
+			b = a.on();
+
+			expect(b.value).to.equal(0);
+			expect(b.iserr).to.be.false;
+
+			q = promiser();
+			a.update(q.promise);
+
+			expect(b.value).to.be.undefined;
+			expect(b.iserr).to.be.undefined;
+		});
+
+		it('should update its children with the value of the promise once resolved and set iserr to false', function(done) {
+
+			q.resolve(1);
+			expect(q.promise.then(function(x) {
+				expect(b.value).to.equal(1);
+				expect(b.iserr).to.be.false;
+				return x;
+			})).to.eventually.equal(1).and.notify(done);
+		});
+
+		it('should update its children with the value of the promise once rejected and set iserr to true', function(done) {
+
+			q = promiser();
+			a.update(q.promise);
+
+			q.reject(2);
+			expect(q.promise.then(undefined, function(x) {
+				expect(b.value).to.equal(2);
+				expect(b.iserr).to.be.true;
+				return x;
+			})).to.eventually.equal(2).and.notify(done);
+		});
+
+		it('should have value and iserr undefined when its updatefn returns a pending promise', function() {
+
+			q = promiser();
+			a = rnr.cr(undefined, function() {
+				return q.promise;
+			});
+
+			expect(a.value).to.be.undefined;
+			expect(a.iserr).to.be.false;
+
+			a.update(0);
+
+			expect(a.value).to.be.undefined;
+			expect(a.iserr).to.be.undefined;
+		});
+
+		it('should set its value directly (bypassing updatefn) once the pending promise is resolved', function(done) {
+
+			q.resolve(1);
+			expect(q.promise.then(function(x) {
+				expect(a.value).to.equal(1);
+				expect(a.iserr).to.be.false;
+				return x;
+			})).to.eventually.equal(1).and.notify(done);
+		});
+
+		it('should set its value directly (bypassing errorfn) once a pending promise is rejected', function(done) {
+
+			q = promiser(q);
+			a.update(0);
+
+			expect(a.value).to.be.undefined;
+			expect(a.iserr).to.be.undefined;
+
+			q.reject(2);
+			expect(q.promise.then(undefined, function(x) {
+				expect(a.value).to.equal(2);
+				expect(a.iserr).to.be.true;
+				return x;
+			})).to.eventually.equal(2).and.notify(done);
+		});
+
+		it('should set its childrens\' value and iserr to undefined when its updatefn returns a pending promise', function() {
+
+			a.update();
+
+			expect(a.value).to.be.undefined;
+			expect(a.iserr).to.be.false;
+
+			b = a.on(function(x) {
+				return x + 1;
+			}, function(x) {
+				return x - 1;
+			});
+
+			expect(b.value).to.be.undefined;
+			expect(b.iserr).to.be.false;
+
+			q = promiser(q);
+			a.update(0);
+
+			expect(b.value).to.be.undefined;
+			expect(b.iserr).to.be.undefined;
+		});
+
+		it('should call its childrens\' updatefn once its pending promise is resolved', function(done) {
+
+			q.resolve(2);
+			expect(q.promise.then(function(x) {
+				expect(a.value).to.equal(2);
+				expect(a.iserr).to.be.false;
+				expect(b.value).to.equal(3);
+				expect(b.iserr).to.be.false;
+				return x;
+			})).to.eventually.equal(2).and.notify(done);
+		});
+
+		it('should call its childrens\' errorfn once its pending promise is rejected', function(done) {
+
+			a.update();
+			q = promiser(q);
+			a.update(0);
+
+			q.reject(2);
+			expect(q.promise.then(undefined, function(x) {
+				expect(a.value).to.equal(2);
+				expect(a.iserr).to.be.true;
+				expect(b.value).to.equal(1);
+				expect(b.iserr).to.be.false;
+				return x;
+			})).to.eventually.equal(2).and.notify(done);
 		});
 	});
 });
