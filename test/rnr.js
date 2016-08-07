@@ -1196,4 +1196,97 @@ describe('Reactor', function() {
 			})).to.eventually.equal(2).and.notify(done);
 		});
 	});
+
+	describe('then()', function(done) {
+
+		var a, b, q, r;
+
+		a = rnr.cr();
+
+		it('should return a promise', function() {
+			q = a.then();
+			expect(q).to.be.an.instanceof(Promise);
+		});
+
+		it('should resolve the promise when update() called', function() {
+
+			a.update(1);
+			expect(q).to.be.fulfilled.and.eventually.equal(1);
+		});
+
+		it('should reject the promise when error() called', function() {
+
+			q = a.then();
+			a.error(2);
+			expect(q).to.be.rejected.and.eventually.equal(2);
+		});
+
+		a = rnr.cr(undefined, function(x) {
+			if (x === 0) {
+				throw -1;
+			}
+			return x + 1;
+		}, function(y) {
+			if (x === -2) {
+				throw -4;
+			}
+			return x - 1;
+		});
+
+		it('should resolve the promise with the output of updatefn', function () {
+
+			q = a.then();
+			a.update(1);
+			expect(q).to.be.fulfilled.and.eventually.equal(2);
+		});
+
+		it('should reject the promise with the thrown value if updatefn throws', function() {
+
+			q = a.then();
+			a.update(0);
+			expect(q).to.be.rejected.and.eventually.equal(-1);
+		});
+
+		it('should resolve the promise with the output of errorfn', function() {
+
+			q = a.then();
+			a.error(2);
+			expect(q).to.be.fulfilled.and.eventually.equal(1);
+		});
+
+		it('should reject the promise with the thrown value if errorfn throws', function() {
+
+			q = a.then();
+			a.update(-2);
+			expect(q).to.be.rejected.and.eventually.equal(-4);
+		});
+
+		it('should return a promise from each call', function() {
+
+			q = q.then();
+			r = a.then();
+
+			expect(q).to.be.an.instanceof(Promise);
+			expect(r).to.be.an.instanceof(Promise);
+		});
+
+		it('should resolve all promises when update() called', function() {
+
+			a.update(1);
+
+			expect(q).to.be.fulfilled.and.eventually.equal(2);
+			expect(r).to.be.fulfilled.and.eventually.equal(2);
+		});
+
+		it('should reject all promises when error() called', function() {
+
+			q = q.then();
+			r = a.then();
+
+			a.error(1);
+
+			expect(q).to.be.rejected.and.eventually.equal(0);
+			expect(r).to.be.rejected.and.eventually.equal(0);
+		});
+	});
 });
