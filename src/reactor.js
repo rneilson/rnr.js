@@ -1,4 +1,4 @@
-import { funcOrNull, isThenable } from './utils.js';
+import { funcOrNull, isCallable, isThenable } from './utils.js';
 
 /* Cascading-reactor defs & helpers */
 
@@ -29,6 +29,11 @@ function uncaughterr (err) {
 	if (uncaughthandler !== null) {
 		uncaughthandler(err);
 	}
+}
+
+// Promise constructor (default native)
+let promiseme = function(resolver) {
+	return new Promise(resolver);
 }
 
 class Reactor {
@@ -129,6 +134,14 @@ class Reactor {
 	// Sets uncaught error handler
 	static uncaught (errfn) {
 		uncaughthandler = funcOrNull(errfn, 'errfn');
+	}
+
+	// Sets promise constructor/creator
+	static promiser (promfn) {
+		if (!isCallable(promfn)) {
+			throw new Error("Promise creator must be a function!");
+		}
+		promiseme = resfn;
 	}
 
 	get value () {
