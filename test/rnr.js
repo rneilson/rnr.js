@@ -267,6 +267,7 @@ describe('Reactor', function() {
 		it('should pass the error to its children if no errorfn given', function() {
 
 			counter = 0;
+			a.update(0);
 			b = a.on(null, function(e) {
 				counter++;
 				return e;
@@ -279,6 +280,7 @@ describe('Reactor', function() {
 
 		it('should set the value to the result of errorfn if its parent\'s updatefn throws', function() {
 
+			a.update(0);
 			b = a.on(null, function(e) {
 				return 2;
 			});
@@ -294,6 +296,7 @@ describe('Reactor', function() {
 
 		it('should pass the value returned from errorfn to its children', function() {
 
+			a.update(0);
 			b = a.on(null, function(e) {
 				return 2;
 			});
