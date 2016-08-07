@@ -49,38 +49,11 @@ class Reactor {
 		this[_canfn] = funcOrNull(cancelfn, 'cancelfn');
 
 		// Initial value
-		var initval, iserr;
-
-		// If newval is another Reactor, set it as parent
-		if (newval instanceof Reactor) {
-			// Add this to parent's child set
-			newval[_addchild](this);
-			// Get initial value from parent
-			initval = newval.value;
-			iserr = newval.iserr;
-		}
-		else {
-			// Newval is standalone, no parent
-			// Use provided initial value
-			initval = newval;
-			iserr = false;
-		}
+		this[_value] = undefined;
+		this[_iserr] = false;
 
 		// Start with empty child list
 		this[_children] = new Set();
-
-		// Function updatefn run once if present
-		// and given/parent value isn't undefined
-		if ((initval !== undefined) && (this[_updfn] !== null)) {
-			// TODO: run _errfn if iserr, wrap in try/catch
-			// TODO: or just call _upd?
-			this[_value] = this[_updfn](initval);
-		}
-		else {
-			// Nothing to run or nothing to be run on
-			// Value will be undefined if initval is
-			this[_value] = initval;
-		}
 
 		// No initial promise
 		this[_promise] = null;
@@ -92,9 +65,20 @@ class Reactor {
 
 		// Set active, default non-persistent
 		this[_active] = true;
-		this[_iserr] = false;
 		this[_done] = false;
 		this[_persist] = false;
+
+		// If newval is another Reactor, set it as parent
+		if (newval instanceof Reactor) {
+			// Add this to parent's child set
+			newval[_addchild](this);
+			// Get initial value from parent
+			this[_upd](newval.value, newval.iserr);
+		}
+		else {
+			// Newval is standalone, no parent - use provided initial value
+			this[_upd](newval, false);
+		}
 	}
 
 	// Creates new Reactor with multiple parents, with value equal to last-set parent
@@ -278,10 +262,7 @@ class Reactor {
 			// Set new parent, add this to new parent's child set, and recalculate value
 			parent[_addchild](this);
 			// Will invoke setter and thus cascade if appropriate
-			if (skipset) {
-				return this;
-			}
-			return this.update(parent.value);
+			return skipset ? this : this[_upd](parent.value, parent.iserr);
 		}
 		// Throw if not reactor
 		throw new Error("Cannot attach to non-Reactor");
@@ -396,7 +377,6 @@ class Reactor {
 				// Set value to error, cascade
 				valOrErr = e;
 				iserr = true;
-				// return this[_err](e, true);
 			}
 		}
 
