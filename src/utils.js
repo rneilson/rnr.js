@@ -17,5 +17,5 @@ export function funcOrNull (fn, name) {
 }
 
 export function isThenable (obj) {
-	return typeof obj === 'object' && !(obj instanceof Reactor) && 'then' in obj;
+	return obj !== undefined && obj !== null && typeof obj === 'object' && !(obj instanceof Reactor) && 'then' in obj;
 }
