@@ -191,12 +191,12 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			if (isThenable(val)) {
-				// Update once thenable resolves (assumes error path for resolve or reject)
-				val.then(res => this.error(res), rej => this.error(rej, true));
-				// Set undefined until thenable resolves
-				return this[_set]();
-			}
+			// if (isThenable(val)) {
+			// 	// Update once thenable resolves (assumes error path for resolve or reject)
+			// 	val.then(res => this.error(res), rej => this.error(rej, true));
+			// 	// Set undefined until thenable resolves
+			// 	return this[_set]();
+			// }
 			return this[_err](val, skipfn);
 		}
 		return this.cancel(val);
