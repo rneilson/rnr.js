@@ -41,7 +41,7 @@ class Reactor {
 		this[_canfn] = funcOrNull(cancelfn, 'cancelfn');
 
 		// Initial value
-		var initval;
+		var initval, iserr;
 
 		// If newval is another Reactor, set it as parent
 		if (newval instanceof Reactor) {
@@ -49,11 +49,13 @@ class Reactor {
 			newval[_addchild](this);
 			// Get initial value from parent
 			initval = newval.value;
+			iserr = newval.iserr;
 		}
 		else {
 			// Newval is standalone, no parent
 			// Use provided initial value
 			initval = newval;
+			iserr = false;
 		}
 
 		// Start with empty child list
