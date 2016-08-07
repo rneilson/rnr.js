@@ -1199,7 +1199,16 @@ describe('Reactor', function() {
 
 	describe('then()', function(done) {
 
-		var a, b, q, r;
+		function promiser (p) {
+			p = p || {};
+			p.promise = new Promise(function (resolve, reject) {
+				p.resolve = resolve;
+				p.reject = reject;
+			});
+			return p;
+		}
+
+		var a, q, r;
 
 		a = rnr.cr();
 
@@ -1287,6 +1296,70 @@ describe('Reactor', function() {
 
 			expect(q).to.be.rejected.and.eventually.equal(0);
 			expect(r).to.be.rejected.and.eventually.equal(0);
+		});
+
+		a = rnr.cr(undefined, function() {
+			q = promiser(q);
+			return q;
+		}, function() {
+			q = promiser(q);
+			return q;
+		});
+
+		it('should leave the promise pending if updatefn returns a promise', function() {
+
+			r = a.then();
+
+			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+
+			a.update(0);
+
+			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+		});
+
+		it('should resolve the promise once updatefn\'s promise is resolved', function() {
+
+			q.resolve(1);
+
+			expect(r).to.be.fulfilled.and.eventually.equal(1);
+		});
+
+		it('should reject the promise once updatefn\'s promise is rejected', function() {
+
+			r = a.then();
+			a.update(0);
+
+			q.reject(1);
+
+			expect(r).to.be.rejected.and.eventually.equal(1);
+		});
+
+		it('should leave the promise pending if errorfn returns a promise', function() {
+
+			r = a.then();
+
+			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+
+			a.error(0);
+
+			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+		});
+
+		it('should resolve the promise once errorfn\'s promise is resolved', function() {
+
+			q.resolve(1);
+
+			expect(r).to.be.fulfilled.and.eventually.equal(1);
+		});
+
+		it('should reject the promise once errorfn\'s promise is rejected', function() {
+
+			r = a.then();
+			a.error(0);
+
+			q.reject(1);
+
+			expect(r).to.be.rejected.and.eventually.equal(1);
 		});
 	});
 });
