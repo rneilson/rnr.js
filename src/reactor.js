@@ -308,6 +308,24 @@ class Reactor {
 		return children;
 	}
 
+	// Returns promise to be resolved/rejected on next update
+	then (onresolve, onreject) {
+		// Create new base promise if not already present
+		if (this[_promise] === null) {
+			this[_promise] = promiseme((res, rej) => {
+				this[_resolve] = res;
+				this[_reject] = rej;
+			});
+		}
+		// Forward args to base promise's then()
+		return this[_promise].then(onresolve, onreject);
+	}
+
+	// For compatibility
+	catch (onreject) {
+		return this.then(undefined, onreject);
+	}
+
 	[_addchild] (child) {
 		if (this[_done]) {
 			throw new Error('Cannot add child to cancelled Reactor');
