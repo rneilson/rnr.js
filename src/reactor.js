@@ -19,7 +19,6 @@ const _addchild = Symbol('_addchild');
 const _delchild = Symbol('_delchild');
 const _isactive = Symbol('_isactive');
 const _upd = Symbol('_upd');
-const _err = Symbol('_err');
 const _set = Symbol('_set');
 
 // Uncaught error handler (default noop)
@@ -179,7 +178,7 @@ class Reactor {
 				// Set undefined until thenable resolves
 				return this[_set]();
 			}
-			return this[_upd](val, skipfn);
+			return this[_upd](val, false, skipfn);
 		}
 		return this.cancel(val);
 	}
@@ -191,13 +190,7 @@ class Reactor {
 			return this;
 		}
 		if (this[_isactive]()) {
-			// if (isThenable(val)) {
-			// 	// Update once thenable resolves (assumes error path for resolve or reject)
-			// 	val.then(res => this.error(res), rej => this.error(rej, true));
-			// 	// Set undefined until thenable resolves
-			// 	return this[_set]();
-			// }
-			return this[_err](val, skipfn);
+			return this[_upd](val, true, skipfn);
 		}
 		return this.cancel(val);
 	}
@@ -328,71 +321,39 @@ class Reactor {
 		return this[_active] = active;
 	}
 
-	// Can assume if _upd, _err, or _set called that:
+	// Can assume if _upd or _set called that:
 	// - _isactive() has already been called this sweep
-	// - we can call _updfn safely
+	// - we can call _updfn/_errfn safely
 	// - we can cancel and remove inactive children
-	// - we can lock while calling _upd or _err
-	// - isThenable() has already been called on input
+	// - we can lock while calling _upd
+	// - isThenable() has already been called on input if req'd
 
-	[_upd] (val, skipfn) {
+	[_upd] (val, iserr, skipfn) {
 		this[_locked] = true;
 		var oldval = this[_value];
-		var newval;
-		var iserr = false;
-
-		if (val === undefined || skipfn || this[_updfn] === null) {
-			newval = val;
-		}
-		else {
-			try {
-				// Set and pass along the raw value instead if _updfn returns undefined
-				newval = this[_updfn](val, oldval);
-				newval = (newval !== undefined) ? newval : val;
-			}
-			catch (e) {
-				// Set value to error, cascade (skip this errfn)
-				return this[_err](e, true);
-			}
-		}
-
-		// Post-fn thenable check
-		if (isThenable(newval)) {
-			// Update once thenable resolved/rejected (assume function already called)
-			newval.then(res => this.update(res, true), rej => this.error(rej, true));
-			// Set value and error status to undefined while thenable pending
-			newval = undefined;
-			iserr = undefined;
-		}
-
-		// Only trigger cascade if value or error status changed
-		if (newval !== oldval || this[_iserr] !== iserr) {
-			// Set and cascade new value
-			this[_set](newval, iserr);
-		}
-		this[_locked] = false;
-		return this;
-	}
-
-	[_err] (err, skipfn) {
-		this[_locked] = true;
 		var valOrErr;
-		var oldval = this[_value];
-		var iserr = true;
+		// var iserr = false;
 
-		if (err === undefined || skipfn || this[_errfn] === null) {
-			valOrErr = err;
+		if (val === undefined || iserr === undefined || skipfn) {
+			valOrErr = val;
 		}
 		else {
 			try {
-				// Call _errfn and set value to result if successful
-				valOrErr = this[_errfn](err, oldval);
-				valOrErr = (valOrErr !== undefined) ? valOrErr : err;
-				iserr = false;
+				if (iserr === false && this[_updfn] !== null) {
+					valOrErr = this[_updfn](val, oldval);
+				}
+				else if (iserr === true && this[_errfn] !== null) {
+					valOrErr = this[_errfn](val, oldval);
+					iserr = false;
+				}
+				// Set and pass along the raw value instead if _updfn/_errfn returns undefined
+				valOrErr = (valOrErr !== undefined) ? valOrErr : val;
 			}
 			catch (e) {
-				// Pass along new error if _errfn throws
+				// Set value to error, cascade
 				valOrErr = e;
+				iserr = true;
+				// return this[_err](e, true);
 			}
 		}
 
@@ -405,9 +366,9 @@ class Reactor {
 			iserr = undefined;
 		}
 
-		// Only trigger cascade if value or error status have changed
+		// Only trigger cascade if value or error status changed
 		if (valOrErr !== oldval || this[_iserr] !== iserr) {
-			// Set and cascade new value/error
+			// Set and cascade new value
 			this[_set](valOrErr, iserr);
 		}
 		this[_locked] = false;
@@ -423,15 +384,13 @@ class Reactor {
 		if (this[_children].size > 0) {
 			for (let child of this[_children]) {
 				if (child[_active]) {
-					if (iserr === false) {
-						child[_upd](val);
-					}
-					else if (iserr === true) {
-						child[_err](val);
-					}
-					else if (iserr === undefined) {
+					if (iserr === undefined) {
 						// Directly set value and error
 						child[_set](val, iserr);
+					}
+					else {
+						// Cascade as normal
+						child[_upd](val, iserr);
 					}
 				}
 				else {
