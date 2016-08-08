@@ -150,7 +150,7 @@ Returns a promise to be resolved or rejected on the next call to `update()` or `
 Equivalent to `then(undefined, onreject)`.
 
 `now(onresolve, onreject)`  
-Returns a promise immediately resolved (if `iserr` `false`) or rejected (if `iserr` `true`) with the current value, or if Reactor is awaiting a pending thenable (`iserr` is `undefined`), returns a pending promise as per `then()`.
+Returns a promise immediately resolved (if `iserr` `false`) or rejected (if `iserr` `true`) with the current value, or if Reactor is awaiting a pending thenable (`iserr` is `undefined`), returns a pending promise as per `then()`. Calling `now()` on an already-cancelled Reactor will return an immediately-rejected promise.
 
 ### Reactor static methods
 
