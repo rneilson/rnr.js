@@ -1043,12 +1043,14 @@ describe('Reactor', function() {
 			expect(a.iserr).to.equal.false;
 		});
 
-		it('should have value and iserr undefined if update() called again with a new promise', function() {
+		it('should have iserr undefined and old value if update() called again with a new promise', function() {
+
+			var tmp = a.value;
 
 			q = promiser();
 			a.update(q.promise);
 			
-			expect(a.value).to.be.undefined;
+			expect(a.value).to.equal(tmp);
 			expect(a.iserr).to.be.undefined;
 		});
 
@@ -1066,7 +1068,7 @@ describe('Reactor', function() {
 			expect(a.iserr).to.equal.true;
 		});
 
-		it('should update its children with value and iserr both undefined when update() called with a promise', function() {
+		it('should update its children with iserr undefined when update() called with a promise', function() {
 
 			a.update(0);
 			b = a.on();
@@ -1077,7 +1079,7 @@ describe('Reactor', function() {
 			q = promiser();
 			a.update(q.promise);
 
-			expect(b.value).to.be.undefined;
+			expect(b.value).to.equal(0);
 			expect(b.iserr).to.be.undefined;
 		});
 
@@ -1132,10 +1134,12 @@ describe('Reactor', function() {
 
 		it('should set its value directly (bypassing errorfn) once a pending promise is rejected', function() {
 
+			var tmp = a.value;
+
 			q = promiser();
 			a.update(0);
 
-			expect(a.value).to.be.undefined;
+			expect(a.value).to.equal(tmp);
 			expect(a.iserr).to.be.undefined;
 
 			q.reject(2);
@@ -1146,7 +1150,7 @@ describe('Reactor', function() {
 			})).to.eventually.equal(2);
 		});
 
-		it('should set its childrens\' value and iserr to undefined when its updatefn returns a pending promise', function() {
+		it('should set its childrens\' iserr to undefined when its updatefn returns a pending promise', function() {
 
 			a.update();
 
