@@ -2,12 +2,23 @@
 A library for cascading reactive data in Javascript (ES6)
 
 **Please note**:
-The API has changed as of version **0.3.0**. Please update dependent code accordingly. These changes are intended to disambiguate Reactors from Promises for compatibility reasons. Additional Promise-specific handling is forthcoming in a future version.
+The API has changed as of version **0.3.0**. Please update dependent code accordingly. These changes are intended to disambiguate Reactors from Promises for compatibility reasons. Promise-specific handling is implemented as of version **0.4.0**.
+
+Changes as of **0.4.0**:
+- *thenable* objects (including but not limited to Promises) are now handled by `update()`
+  - `update(thenable)` will set and propagate `undefined` for both `value` and `iserr` properties until `thenable` is resolved or rejected, at which point `value` will be set to the returned value of `thenable`, and `iserr` will be `false` if resolved, or `true` if rejected
+  - if `updatefn` or `errorfn` return a promise will set `value` and `iserr` as above, until said promise is resolved or rejected
+  - a promise returned by `updatefn` which is eventually rejected will set `iserr` to `true`
+  - a promise returned by `errorfn` which is eventually resolved will set `iserr` to `false`
+  - if `update()` or `error()` are called before `thenable` is resolved/rejected, the value will be set as normal -- however, please note that `thenable` is assumed to be non-cancelable, and therefore the intermediate value will be overwritten once `thenable` resolves or rejects
+- `then()` is now available on Reactor objects, returning a promise which will be resolved or rejected on the next call to `update()` or `error()`, or when a pending thenable (as supplied to `update()`, or returned by `updatefn` or `errorfn`) is resolved or rejected
+  - by default, `then()` uses the native `new Promise()` constructor; this can be overridden with a user-specified function using `Reactor.promiser()` (see below for details) in order to use another Promise-equivalent library such as Angular's `$q`
+  - please note that the promise returned by `then()` will not be resolved/rejected until the Reactor's value is updated; the current value will under no circumstances be automatically promisified by `then()`
 
 Changes as of **0.3.1**:
 - `errorfn` no longer called if `thenfn` of same Reactor throws; error value stored directly and `error()` called on children
 - value passed to `error()` and error thrown by `thenfn` now stored as value in Reactor in addition to cascading to children, with `iserr` property `true` to disambiguate from successful `update()` calls
-
+- `iserr` determines whether `update()` (if `false`) or `error()` (if `true`) is called on children
 
 Changes as of **0.3.0**:
 - `then()` renamed to `on()`
@@ -20,7 +31,7 @@ Changes as of **0.3.0**:
 
 It's perhaps easiest to consider a Reactor to be akin to a repeatable, persistent Promise. Instead of reestablishing a chain of `then()` and `catch()` each time a Promise is created, a chain (or tree) of dependent functions can be set up once, and simply rerun whenever `update()` is called with a new value on the parent Reactor.
 
-A Reactor has any or all of three attached functions: `updatefn`, which is called when the `update()` method is called on the Reactor or its parent; `errorfn`, which is called if `updatefn` throws an error, if an error is passed down from its parent, or it has the `error()` method called; and/or `cancelfn`, which is called when it or its parent has the `cancel()` method called. Each Reactor will subsequently call its children (if any) with the result of these functions. The `value` property stores the most recent result of `on()`, the value returned by `errorfn` if it does not re-throw, or the final value after `cancel()`.
+A Reactor has any or all of three attached functions: `updatefn`, which is called when the `update()` method is called on the Reactor or its parent; `errorfn`, which is called if if an error is passed down from its parent, or it has the `error()` method called; and/or `cancelfn`, which is called when it or its parent has the `cancel()` method called. Each Reactor will subsequently call its children (if any) with the result of these functions. The `value` property stores the most recent result of `update()` or `error()`, or the final value after `cancel()`. The `iserr` property indicates if an error was passed down from its parent without `errorfn` present, or if a value was thrown by either `updatefn` or `errorfn` as appropriate.
 
 ### Requirements
 
@@ -70,7 +81,7 @@ var d = c.oncancel(cancelfn);        // Equivalent to c.on(null, null, cancelfn)
 Parameter | Description
 --------- | -----------
 `initval` | Initial value *or* parent Reactor.
-`updatefn` | Function to call when updated. Unless `undefined`, Will be called with `initval`, or its `value` property if a Reactor.
+`updatefn` | Function to call when updated. Unless `undefined`, it will be called with `initval`, or its `value` property if a Reactor.
 `errorfn` | Function to call if `error()` method is called, or if an uncaught error is passed down from parent.
 `cancelfn` | Function to call when `cancel()` method is called directly or by parent.
 
@@ -80,7 +91,7 @@ Parameter | Description
 Read-only getter; this Reactor's current value.
 
 `iserr`  
-Read-only getter; `true` if `value` is an error thrown by `updatefn` or the result of `error()`, `false` otherwise.
+Read-only getter; `true` if `value` is an error thrown by `updatefn` or `errorfn`, or by a call to `error()` with no `errorfn`; `false` if `value` is a value successfully returned by `updatefn` or `errorfn`, or by a call to `update()` with no `updatefn`; `undefined` if a thenable if `update()` was called with a thenable, or if `updatefn` or `errorfn` returned a thenable.
 
 `done`  
 Read-only getter; `true` if this Reactor has been cancelled, `false` otherwise.
@@ -103,10 +114,10 @@ Equivalent to on(null, errorfn, cancelfn).
 Equivalent to on(null, null, cancelfn).
 
 `update(val)`  
-Calls `updatefn` if present and stores returned value, stores `val` if no `updatefn` given or `updatefn` returns `undefined`, or stores error if `updatefn` throws; `update()` (or `error()` if `updatefn` throws) are then called on children. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
+Calls `updatefn` if present and stores returned value, stores `val` if no `updatefn` given or `updatefn` returns `undefined`, or stores error if `updatefn` throws; `update()` (or `error()` if `updatefn` throws) are then called on children. If `val` is `undefined`, `updatefn` will not be called. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
 
 `error(val)`  
-Calls `errorfn` if present, stores returned value if `errorfn` returns, and updates children. If no `errorfn`, stores `val` and calls `error(val)` on children. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
+Calls `errorfn` if present, stores returned value if `errorfn` returns, and updates children. If no `errorfn`, stores `val` and calls `error(val)` on children. If `val` is `undefined`, `errorfn` will not be called. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
 
 `cancel(val)`  
 Calls `cancelfn` if present, stores returned value (or `val` if no `cancelfn` given), and cancels children. This does **not** lock Reactors in the tree, and thus may be called during the update sequence.
@@ -123,7 +134,10 @@ Removes all children from Reactor; will call `cancel(final)` on children if `can
 ### Reactor static methods
 
 `Reactor.uncaught(errfn)`  
-Sets uncaught error handler function for all Reactor instances. Default is `null` (noop).
+Sets uncaught error handler function for all Reactor instances. Default is `null` (noop). `errfn` must be `null` or a function of signature `function (err) {...}`.
+
+`Reactor.promiser(promisefn)`  
+Sets promise constructor function used by `then()`. `promisefn` must be a function taking a single argument of `resolver` as per Promises/A+ specification, where `resolver` is a function with signature `function (resolve, reject) {...}`. Default is `function (resolver) { return new Promise(resolver); }`.
 
 `Reactor.any(...parents)`  
 Returns new Reactor with multiple parents, which is updated when any parent is updated; value is the latest value passed by any parent.
