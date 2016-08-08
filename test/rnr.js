@@ -4,6 +4,7 @@ var chai = require('chai');
 var chaiAsPromised = require('chai-as-promised');
 chai.use(chaiAsPromised);
 var expect = chai.expect;
+// var should = chai.should();
 var rnr = require('../dist/rnr.cjs.js');
 
 describe('Reactor', function() {
@@ -1001,15 +1002,15 @@ describe('Reactor', function() {
 		});
 	});
 
-	describe('update() with promises', function(done) {
+	describe('update() with promises', function() {
 
-		function promiser (q) {
-			q = q || {};
-			q.promise = new Promise(function (resolve, reject) {
-				q.resolve = resolve;
-				q.reject = reject;
+		function promiser () {
+			var p = {};
+			p.promise = new Promise(function (resolve, reject) {
+				p.resolve = resolve;
+				p.reject = reject;
 			});
-			return q;
+			return p;
 		}
 
 		var a, b, c, q, r, s;
@@ -1028,13 +1029,13 @@ describe('Reactor', function() {
 			expect(a.iserr).to.be.undefined;
 		});
 
-		it('should have the value of the promise once resolved', function (done) {
+		it('should have the value of the promise once resolved', function () {
 
 			q.resolve(1);
-			expect(q.promise.then(function(x) {
+			return expect(q.promise.then(function(x) {
 				expect(a.value).to.equal(1);
 				return x;
-			})).to.eventually.equal(1).and.notify(done);
+			})).to.eventually.equal(1);
 		});
 
 		it('should have iserr equal false if promise resolved', function () {
@@ -1051,13 +1052,13 @@ describe('Reactor', function() {
 			expect(a.iserr).to.be.undefined;
 		});
 
-		it('should have the value of the promise once rejected', function(done) {
+		it('should have the value of the promise once rejected', function() {
 
 			q.reject(2);
-			expect(q.promise.then(undefined, function(x) {
+			return expect(q.promise.then(undefined, function(x) {
 				expect(a.value).to.equal(2);
 				return x;
-			})).to.eventually.equal(2).and.notify(done);
+			})).to.eventually.equal(2);
 		});
 
 		it('should have iserr equal true if promise rejected', function() {
@@ -1080,27 +1081,27 @@ describe('Reactor', function() {
 			expect(b.iserr).to.be.undefined;
 		});
 
-		it('should update its children with the value of the promise once resolved and set iserr to false', function(done) {
+		it('should update its children with the value of the promise once resolved and set iserr to false', function() {
 
 			q.resolve(1);
-			expect(q.promise.then(function(x) {
+			return expect(q.promise.then(function(x) {
 				expect(b.value).to.equal(1);
 				expect(b.iserr).to.be.false;
 				return x;
-			})).to.eventually.equal(1).and.notify(done);
+			})).to.eventually.equal(1);
 		});
 
-		it('should update its children with the value of the promise once rejected and set iserr to true', function(done) {
+		it('should update its children with the value of the promise once rejected and set iserr to true', function() {
 
 			q = promiser();
 			a.update(q.promise);
 
 			q.reject(2);
-			expect(q.promise.then(undefined, function(x) {
+			return expect(q.promise.then(undefined, function(x) {
 				expect(b.value).to.equal(2);
 				expect(b.iserr).to.be.true;
 				return x;
-			})).to.eventually.equal(2).and.notify(done);
+			})).to.eventually.equal(2);
 		});
 
 		it('should have value and iserr undefined when its updatefn returns a pending promise', function() {
@@ -1119,30 +1120,30 @@ describe('Reactor', function() {
 			expect(a.iserr).to.be.undefined;
 		});
 
-		it('should set its value directly (bypassing updatefn) once the pending promise is resolved', function(done) {
+		it('should set its value directly (bypassing updatefn) once the pending promise is resolved', function() {
 
 			q.resolve(1);
-			expect(q.promise.then(function(x) {
+			return expect(q.promise.then(function(x) {
 				expect(a.value).to.equal(1);
 				expect(a.iserr).to.be.false;
 				return x;
-			})).to.eventually.equal(1).and.notify(done);
+			})).to.eventually.equal(1);
 		});
 
-		it('should set its value directly (bypassing errorfn) once a pending promise is rejected', function(done) {
+		it('should set its value directly (bypassing errorfn) once a pending promise is rejected', function() {
 
-			q = promiser(q);
+			q = promiser();
 			a.update(0);
 
 			expect(a.value).to.be.undefined;
 			expect(a.iserr).to.be.undefined;
 
 			q.reject(2);
-			expect(q.promise.then(undefined, function(x) {
+			return expect(q.promise.then(undefined, function(x) {
 				expect(a.value).to.equal(2);
 				expect(a.iserr).to.be.true;
 				return x;
-			})).to.eventually.equal(2).and.notify(done);
+			})).to.eventually.equal(2);
 		});
 
 		it('should set its childrens\' value and iserr to undefined when its updatefn returns a pending promise', function() {
@@ -1161,46 +1162,46 @@ describe('Reactor', function() {
 			expect(b.value).to.be.undefined;
 			expect(b.iserr).to.be.false;
 
-			q = promiser(q);
+			q = promiser();
 			a.update(0);
 
 			expect(b.value).to.be.undefined;
 			expect(b.iserr).to.be.undefined;
 		});
 
-		it('should call its childrens\' updatefn once its pending promise is resolved', function(done) {
+		it('should call its childrens\' updatefn once its pending promise is resolved', function() {
 
 			q.resolve(2);
-			expect(q.promise.then(function(x) {
+			return expect(q.promise.then(function(x) {
 				expect(a.value).to.equal(2);
 				expect(a.iserr).to.be.false;
 				expect(b.value).to.equal(3);
 				expect(b.iserr).to.be.false;
 				return x;
-			})).to.eventually.equal(2).and.notify(done);
+			})).to.eventually.equal(2);
 		});
 
-		it('should call its childrens\' errorfn once its pending promise is rejected', function(done) {
+		it('should call its childrens\' errorfn once its pending promise is rejected', function() {
 
 			a.update();
-			q = promiser(q);
+			q = promiser();
 			a.update(0);
 
 			q.reject(2);
-			expect(q.promise.then(undefined, function(x) {
+			return expect(q.promise.then(undefined, function(x) {
 				expect(a.value).to.equal(2);
 				expect(a.iserr).to.be.true;
 				expect(b.value).to.equal(1);
 				expect(b.iserr).to.be.false;
 				return x;
-			})).to.eventually.equal(2).and.notify(done);
+			})).to.eventually.equal(2);
 		});
 	});
 
-	describe('then()', function(done) {
+	describe('then()', function() {
 
-		function promiser (p) {
-			p = p || {};
+		function promiser () {
+			var p = {};
 			p.promise = new Promise(function (resolve, reject) {
 				p.resolve = resolve;
 				p.reject = reject;
@@ -1209,119 +1210,159 @@ describe('Reactor', function() {
 		}
 
 		var a, q, r;
-
-		a = rnr.cr();
+		// a = rnr.cr();
 
 		it('should return a promise', function() {
+
+			a = rnr.cr();
 			q = a.then();
+
 			expect(q).to.be.an.instanceof(Promise);
 		});
 
 		it('should resolve the promise when update() called', function() {
 
+			q = a.then();
+
 			a.update(1);
-			expect(q).to.be.fulfilled.and.eventually.equal(1);
+
+			return expect(q).to.eventually.equal(1);
 		});
 
 		it('should reject the promise when error() called', function() {
 
 			q = a.then();
 			a.error(2);
-			expect(q).to.be.rejected.and.eventually.equal(2);
-		});
-
-		a = rnr.cr(undefined, function(x) {
-			if (x === 0) {
-				throw -1;
-			}
-			return x + 1;
-		}, function(y) {
-			if (x === -2) {
-				throw -4;
-			}
-			return x - 1;
+			return expect(q).to.be.rejectedWith(2);
 		});
 
 		it('should resolve the promise with the output of updatefn', function () {
 
+			a = rnr.cr(undefined,
+				function(x) {
+					if (x === 0) {
+						throw -1;
+					}
+					return x + 1;
+				}, 
+				function(y) {
+					if (y === -2) {
+						throw -4;
+					}
+					return y - 1;
+				}
+			);
+
 			q = a.then();
 			a.update(1);
-			expect(q).to.be.fulfilled.and.eventually.equal(2);
+			return expect(q).to.be.fulfilled.and.eventually.equal(2);
 		});
 
 		it('should reject the promise with the thrown value if updatefn throws', function() {
 
 			q = a.then();
 			a.update(0);
-			expect(q).to.be.rejected.and.eventually.equal(-1);
+			return expect(q).to.be.rejectedWith(-1);
 		});
 
 		it('should resolve the promise with the output of errorfn', function() {
 
 			q = a.then();
 			a.error(2);
-			expect(q).to.be.fulfilled.and.eventually.equal(1);
+			return expect(q).to.be.fulfilled.and.eventually.equal(1);
 		});
 
 		it('should reject the promise with the thrown value if errorfn throws', function() {
 
 			q = a.then();
-			a.update(-2);
-			expect(q).to.be.rejected.and.eventually.equal(-4);
+			a.error(-2);
+			return expect(q).to.be.rejectedWith(-4);
 		});
 
 		it('should return a promise from each call', function() {
 
-			q = q.then();
+			q = a.then();
 			r = a.then();
 
 			expect(q).to.be.an.instanceof(Promise);
 			expect(r).to.be.an.instanceof(Promise);
 		});
 
-		it('should resolve all promises when update() called', function() {
+		it('should resolve all promises when update() called and updatefn returns', function() {
 
 			a.update(1);
 
-			expect(q).to.be.fulfilled.and.eventually.equal(2);
-			expect(r).to.be.fulfilled.and.eventually.equal(2);
+			return expect(Promise.all([q, r])).to.become([2, 2])
 		});
 
-		it('should reject all promises when error() called', function() {
+		it('should reject all promises when update() called and updatefn throws', function() {
 
-			q = q.then();
+			q = a.then();
+			r = a.then();
+
+			a.update(0);
+
+			return Promise.all([
+				expect(q).to.be.rejectedWith(-1),
+				expect(r).to.be.rejectedWith(-1)
+			]);
+		});
+
+		it('should resolve all promises when error() called and errorfn returns', function() {
+
+			q = a.then();
 			r = a.then();
 
 			a.error(1);
 
-			expect(q).to.be.rejected.and.eventually.equal(0);
-			expect(r).to.be.rejected.and.eventually.equal(0);
+			return expect(Promise.all([q, r])).to.become([0, 0]);
 		});
 
-		a = rnr.cr(undefined, function() {
-			q = promiser(q);
-			return q;
-		}, function() {
-			q = promiser(q);
-			return q;
+		it('should reject all promises when error() called and errorfn throws', function() {
+
+			q = a.then();
+			r = a.then();
+
+			a.error(-2);
+
+			return Promise.all([
+				expect(q).to.be.rejectedWith(-4),
+				expect(r).to.be.rejectedWith(-4)
+			]);
 		});
 
 		it('should leave the promise pending if updatefn returns a promise', function() {
 
-			r = a.then();
+			var pending = true;
 
-			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+			a = rnr.cr(undefined, function() {
+				q = promiser();
+				return q.promise;
+			}, function() {
+				q = promiser();
+				return q.promise;
+			});
+
+			r = a.then(function (x) {
+				pending = false;
+				return x;
+			});
+
+			expect(pending).to.be.true;
 
 			a.update(0);
 
-			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+			expect(q.promise).to.be.instanceof(Promise);
+			return expect(Promise.resolve().then(function() {
+				expect(pending).to.be.true;
+			})).to.be.fulfilled;
 		});
 
 		it('should resolve the promise once updatefn\'s promise is resolved', function() {
 
 			q.resolve(1);
 
-			expect(r).to.be.fulfilled.and.eventually.equal(1);
+			return expect(r).to.eventually.equal(1);
 		});
 
 		it('should reject the promise once updatefn\'s promise is rejected', function() {
@@ -1331,25 +1372,33 @@ describe('Reactor', function() {
 
 			q.reject(1);
 
-			expect(r).to.be.rejected.and.eventually.equal(1);
+			return expect(r).to.be.rejectedWith(1);
 		});
 
 		it('should leave the promise pending if errorfn returns a promise', function() {
 
-			r = a.then();
+			var pending = true;
 
-			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+			r = a.then(function (x) {
+				pending = false;
+				return x;
+			});
+
+			expect(pending).to.be.true;
 
 			a.error(0);
 
-			expect(r).to.not.be.fulfilled.and.not.be.rejected;
+			expect(q.promise).to.be.instanceof(Promise);
+			return expect(Promise.resolve().then(function() {
+				expect(pending).to.be.true;
+			})).to.be.fulfilled;
 		});
 
 		it('should resolve the promise once errorfn\'s promise is resolved', function() {
 
 			q.resolve(1);
 
-			expect(r).to.be.fulfilled.and.eventually.equal(1);
+			return expect(r).to.be.fulfilled.and.eventually.equal(1);
 		});
 
 		it('should reject the promise once errorfn\'s promise is rejected', function() {
@@ -1359,7 +1408,7 @@ describe('Reactor', function() {
 
 			q.reject(1);
 
-			expect(r).to.be.rejected.and.eventually.equal(1);
+			return expect(r).to.be.rejectedWith(1);
 		});
 	});
 });
