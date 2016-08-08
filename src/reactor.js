@@ -191,7 +191,7 @@ class Reactor {
 			if (isThenable(val)) {
 				// Update once thenable resolves/rejects
 				val.then(res => this.update(res), rej => this.error(rej));
-				// Set undefined until thenable resolves
+				// Set pending until thenable resolves
 				return this[_set]();
 			}
 			return this[_upd](val, false, skipfn);
@@ -369,9 +369,13 @@ class Reactor {
 		this[_locked] = true;
 		var oldval = this[_value];
 		var valOrErr;
-		// var iserr = false;
 
-		if (val === undefined || iserr === undefined || skipfn) {
+		if (iserr === undefined) {
+			// Keep previous value
+			valOrErr = oldval;
+		}
+		else if (val === undefined || skipfn) {
+			// Set value directly, bypass functions
 			valOrErr = val;
 		}
 		else {
@@ -397,9 +401,10 @@ class Reactor {
 		if (isThenable(valOrErr)) {
 			// Update once thenable resolved/rejected (assume function already called)
 			valOrErr.then(res => this.update(res, true), rej => this.error(rej, true));
-			// Set value and error status to undefined while thenable pending
-			valOrErr = undefined;
+			// Set error status to undefined while thenable pending
 			iserr = undefined;
+			// Keep old value
+			valOrErr = oldval;
 		}
 
 		// Only trigger cascade if value or error status changed
@@ -423,11 +428,11 @@ class Reactor {
 			for (let child of this[_children]) {
 				if (child[_active]) {
 					if (iserr === undefined) {
-						// Directly set value and error
-						child[_set](val, iserr);
+						// Set pending (child will keep old value)
+						child[_set]();
 					}
 					else {
-						// Cascade as normal
+						// Cascade normally
 						child[_upd](val, iserr);
 					}
 				}
@@ -438,7 +443,7 @@ class Reactor {
 			}
 		}
 		// Forward to uncaught handler if no children (end of branch) and no pending promise
-		else if (iserr == true && val !== undefined && this[_promise] === null) {
+		else if (iserr === true && val !== undefined && this[_promise] === null) {
 			uncaughterr(val);
 		}
 
