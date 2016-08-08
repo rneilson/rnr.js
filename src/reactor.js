@@ -331,6 +331,30 @@ class Reactor {
 		return this.then(undefined, onreject);
 	}
 
+	// Returns promise resolved/rejected with current value, or chained to existing promise if pending
+	now (onresolve, onreject) {
+		var iserr = this[_iserr];
+		// Forward to then() if promise pending
+		if (iserr === undefined) {
+			return this.then(onresolve, onreject);
+		}
+		// Return resolved promise if not error
+		else if (iserr === false) {
+			return promiseme((res, rej) => {
+				res(this.value);
+			});
+		}
+		// Return rejected promise if error
+		else if (iserr === true) {
+			return promiseme((res, rej) => {
+				rej(this.value);
+			});
+		}
+		else {
+			throw new Error(`Invalid Reactor state: ${iserr}`);
+		}
+	}
+
 	[_addchild] (child) {
 		if (this[_done]) {
 			throw new Error('Cannot add child to cancelled Reactor');
@@ -434,6 +458,9 @@ class Reactor {
 		this[_iserr] = iserr;
 		// Set value only if not pending
 		if (iserr !== undefined) {
+			if (iserr !== false && iserr !== true) {
+				throw new Error(`Invalid Reactor state: ${iserr}`);
+			}
 			this[_value] = val;
 		}
 
