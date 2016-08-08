@@ -232,6 +232,11 @@ class Reactor {
 		this[_value] = finalval;
 		this[_iserr] = finalerr;
 
+		// Reject pending promise
+		if (this[_promise] !== null) {
+			this[_reject](new Error("Reactor cancelled"));
+		}
+
 		// Clear promise and associated resolve/reject functions
 		this[_promise] = null;
 		this[_resolve] = null;
@@ -397,20 +402,23 @@ class Reactor {
 			}
 		}
 
-		// Post-fn thenable check
-		if (isThenable(valOrErr)) {
-			// Update once thenable resolved/rejected (assume function already called)
-			valOrErr.then(res => this.update(res, true), rej => this.error(rej, true));
-			// Set error status to undefined while thenable pending
-			iserr = undefined;
-			// Keep old value
-			valOrErr = oldval;
-		}
+		// Post-fn cancelled check
+		if (!this[_done]) {
+			// Post-fn thenable check
+			if (isThenable(valOrErr)) {
+				// Update once thenable resolved/rejected (assume function already called)
+				valOrErr.then(res => this.update(res, true), rej => this.error(rej, true));
+				// Set error status to undefined while thenable pending
+				iserr = undefined;
+				// Keep old value
+				valOrErr = oldval;
+			}
 
-		// Only trigger cascade if value or error status changed
-		if (valOrErr !== oldval || this[_iserr] !== iserr) {
-			// Set and cascade new value
-			this[_set](valOrErr, iserr);
+			// Only trigger cascade if value or error status changed and not cancelled
+			if (valOrErr !== oldval || this[_iserr] !== iserr) {
+				// Set and cascade new value
+				this[_set](valOrErr, iserr);
+			}
 		}
 		this[_locked] = false;
 		return this;
