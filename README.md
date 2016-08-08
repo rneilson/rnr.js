@@ -9,6 +9,7 @@ Changes as of **0.4.2**:
 - new getter property `pending` added; `true` when awaiting resolution of a thenable, `false` otherwise
 - `cancel()` will reject any pending promises from `then()` with an error
 - `then()` will return a rejected promise if Reactor is already cancelled
+- `now()` method added, returning an immediately resolved/rejected promise with the current value, or a pending promise as per `then()` if currently awaiting resolution of a thenable
 
 Changes as of **0.4.0**:
 - *thenable* objects (including but not limited to Promises) are now handled by `update()`
@@ -147,6 +148,9 @@ Returns a promise to be resolved or rejected on the next call to `update()` or `
 
 `catch(onreject)`  
 Equivalent to `then(undefined, onreject)`.
+
+`now(onresolve, onreject)`  
+Returns a promise immediately resolved (if `iserr` `false`) or rejected (if `iserr` `true`) with the current value, or if Reactor is awaiting a pending thenable (`iserr` is `undefined`), returns a pending promise as per `then()`.
 
 ### Reactor static methods
 
