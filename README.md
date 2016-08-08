@@ -4,6 +4,12 @@ A library for cascading reactive data in Javascript (ES6)
 **Please note**:
 The API has changed as of version **0.3.0**. Please update dependent code accordingly. These changes are intended to disambiguate Reactors from Promises for compatibility reasons. Promise-specific handling is implemented as of version **0.4.0**.
 
+Changes as of **0.4.2**:
+- `value` is no longer set to `undefined` when awaiting resolution of a thenable; `value` remains set to the previous value
+- new getter property `pending` added; `true` when awaiting resolution of a thenable, `false` otherwise
+- `cancel()` will reject any pending promises from `then()` with an error
+- `then()` will return a rejected promise if Reactor is already cancelled
+
 Changes as of **0.4.0**:
 - *thenable* objects (including but not limited to Promises) are now handled by `update()`
   - `update(thenable)` will set and propagate `undefined` for both `value` and `iserr` properties until `thenable` is resolved or rejected, at which point `value` will be set to the returned value of `thenable`, and `iserr` will be `false` if resolved, or `true` if rejected
@@ -13,7 +19,7 @@ Changes as of **0.4.0**:
   - if `update()` or `error()` are called before `thenable` is resolved/rejected, the value will be set as normal -- however, please note that `thenable` is assumed to be non-cancelable, and therefore the intermediate value will be overwritten once `thenable` resolves or rejects
 - `then()` is now available on Reactor objects, returning a promise which will be resolved or rejected on the next call to `update()` or `error()`, or when a pending thenable (as supplied to `update()`, or returned by `updatefn` or `errorfn`) is resolved or rejected
   - by default, `then()` uses the native `new Promise()` constructor; this can be overridden with a user-specified function using `Reactor.promiser()` (see below for details) in order to use another Promise-equivalent library such as Angular's `$q`
-  - please note that the promise returned by `then()` will not be resolved/rejected until the Reactor's value is updated; the current value will under no circumstances be automatically promisified by `then()`
+  - please note that the promise returned by `then()` will not be resolved/rejected until the Reactor's value is updated; the current value will not be automatically promisified by `then()`
 
 Changes as of **0.3.1**:
 - `errorfn` no longer called if `thenfn` of same Reactor throws; error value stored directly and `error()` called on children
@@ -104,6 +110,9 @@ Read-only getter; `true` if `persist()` method called on this Reactor, `false` o
 `children`  
 Read-only getter; array of this Reactor's current children (returns new array when accessed).
 
+`pending`  
+Read-only getter; `true` if this Reactor is waiting for a thenable to be resolved/rejected, `false` otherwise.
+
 ### Reactor methods
 
 `on(updatefn, errorfn, cancelfn)`  
@@ -134,7 +143,7 @@ Removes Reactor as child of `parent`; will call `cancel()` on parent if `autocan
 Removes all children from Reactor; will call `cancel(final)` on children if `cancel` is `true`.
 
 `then(onresolve, onreject)`  
-Returns a promise to be resolved or rejected on the next call to `update()` or `error()`, or when a pending thenable (passed to `update()`, or returned from `updatefn` or `errorfn`) is resolved or rejected. This promise will be pending until the Reactor's value changes; the current value is not promisified. Please note: calling `cancel()` will leave this promise in a pending state.
+Returns a promise to be resolved or rejected on the next call to `update()` or `error()`, or when a pending thenable (passed to `update()`, or returned from `updatefn` or `errorfn`) is resolved or rejected. This promise will be pending until the Reactor's value changes; the current value is not promisified. Calling `cancel()` will reject this promise with an error. Calling `then()` on an already-cancelled Reactor will return an immediately-rejected promise.
 
 `catch(onreject)`  
 Equivalent to `then(undefined, onreject)`.
