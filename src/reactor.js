@@ -225,6 +225,11 @@ class Reactor {
 		this[_value] = finalval;
 		this[_iserr] = finalerr;
 
+		// Clear promise and associated resolve/reject functions
+		this[_promise] = null;
+		this[_resolve] = null;
+		this[_reject] = null;
+
 		// Cascade to children
 		for (let child of this[_children]) {
 			child.cancel(finalval);
