@@ -309,6 +309,12 @@ class Reactor {
 
 	// Returns promise to be resolved/rejected on next update
 	then (onresolve, onreject) {
+		// Return rejected promise if cancelled
+		if (this[_done]) {
+			return promiseme((res, rej) => {
+				rej(new Error("Reactor cancelled"));
+			});
+		}
 		// Create new base promise if not already present
 		if (this[_promise] === null) {
 			this[_promise] = promiseme((res, rej) => {
