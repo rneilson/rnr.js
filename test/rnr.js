@@ -143,7 +143,7 @@ describe('Reactor', function() {
 			expect(c.value).to.equal(1);
 		});
 
-		it('should call updatefn with newval and oldval', function() {
+		it('should call updatefn with given and previous values', function() {
 
 			var newvalue, oldvalue;
 			d = rnr.cr(0, function(newval, oldval) {
@@ -404,7 +404,7 @@ describe('Reactor', function() {
 			expect(a.iserr).to.be.true;
 		});
 
-		it('should call errorfn with given val', function() {
+		it('should call errorfn when error() called', function() {
 
 			var counter = 0;
 			a = rnr.cr(0, null, function(e) {
@@ -413,6 +413,20 @@ describe('Reactor', function() {
 			a.error(1);
 
 			expect(counter).to.equal(1);
+		});
+
+		it('should call errorfn with given and previous values', function() {
+
+			var newvalue, oldvalue;
+			a = rnr.cr(0, null, function(newval, oldval) {
+				newvalue = newval;
+				oldvalue = oldval;
+				return newval;
+			});
+			a.error(1);
+
+			expect(newvalue).to.equal(1);
+			expect(oldvalue).to.equal(0);
 		});
 
 		it('should update the value to the output of errorfn', function() {
@@ -425,9 +439,20 @@ describe('Reactor', function() {
 			expect(a.value).to.equal(2);
 		});
 
-		it('should have iserr property false if errorfn returns a value', function() {
+		it('should have iserr equal false if errorfn returns a value', function() {
 
 			expect(a.iserr).to.be.false;
+		});
+
+		it('should have iserr equal true if errorfn throws', function() {
+
+			a = rnr.cr(undefined, null, function(x) {
+				throw x + 1;
+			});
+			a.error(1);
+
+			expect(a.value).to.equal(2);
+			expect(a.iserr).to.be.true;
 		});
 
 		it('should pass the value returned by errorfn to its children', function() {
@@ -453,10 +478,26 @@ describe('Reactor', function() {
 			expect(counter).to.equal(1);
 		});
 
+		it('should call its childrens\' _err() if errorfn throws', function() {
+
+			var counter = 0;
+			a = rnr.cr(undefined, null, function(x) {
+				throw x + 1;
+			});
+			var b = a.onerror(function(e) {
+				counter++;
+			});
+			a.error(1);
+
+			expect(counter).to.equal(1);
+			expect(b.value).to.equal(2);
+			expect(b.iserr).to.be.false;
+		});
+
 		it('should call uncaught handler if no errorfn in it or its or children', function() {
 
 			a = rnr.cr(0);
-			b = a.on();
+			var b = a.on();
 
 			a.error(1);
 
@@ -1013,20 +1054,42 @@ describe('Reactor', function() {
 			return p;
 		}
 
-		var a, b, c, q, r, s;
+		var a, b, c, q, r, s, counter, newval, oldval;
 
-		it('should set value and iserr to undefined when called with a promise', function () {
+		it('should set iserr to undefined when called with a promise', function () {
 
-			a = rnr.cr();
+			counter = 0;
 
-			expect(a.value).to.be.undefined;
+			a = rnr.cr(0, function(x, y) {
+				newval = x;
+				oldval = y;
+				counter++;
+				return x;
+			});
+
+			expect(a.value).to.equal(0);
 			expect(a.iserr).to.be.false;
+			expect(counter).to.equal(1);
 
 			q = promiser();
 			a.update(q.promise);
 
-			expect(a.value).to.be.undefined;
 			expect(a.iserr).to.be.undefined;
+		});
+
+		it('should have pending equal true when waiting for the promise to be resolved', function() {
+
+			expect(a.pending).to.be.true;
+		});
+
+		it('should have its previous value while pending', function() {
+			
+			expect(a.value).to.equal(0);
+		});
+
+		it('should not have called updatefn while pending', function() {
+
+			expect(counter).to.equal(1);
 		});
 
 		it('should have the value of the promise once resolved', function () {
@@ -1038,20 +1101,34 @@ describe('Reactor', function() {
 			})).to.eventually.equal(1);
 		});
 
-		it('should have iserr equal false if promise resolved', function () {
+		it('should have iserr equal false once promise resolved', function () {
 
-			expect(a.iserr).to.equal.false;
+			expect(a.iserr).to.be.false;
 		});
 
-		it('should have iserr undefined and old value if update() called again with a new promise', function() {
+		it('should have pending equal false once promise resolved', function() {
 
-			var tmp = a.value;
+			expect(a.pending).to.be.false;
+		});
+
+		it('should call updatefn with new and old values when promise resolved', function() {
+
+			expect(counter).to.equal(2);
+			expect(newval).to.equal(1);
+			expect(oldval).to.equal(0);
+		});
+
+		it('should have iserr undefined and previous value if update() called again with a new promise', function() {
+
+			var tmp1 = a.value;
+			var tmp2 = counter;
 
 			q = promiser();
 			a.update(q.promise);
 			
-			expect(a.value).to.equal(tmp);
 			expect(a.iserr).to.be.undefined;
+			expect(a.value).to.equal(tmp1);
+			expect(counter).to.equal(tmp2);
 		});
 
 		it('should have the value of the promise once rejected', function() {
@@ -1063,9 +1140,14 @@ describe('Reactor', function() {
 			})).to.eventually.equal(2);
 		});
 
-		it('should have iserr equal true if promise rejected', function() {
+		it('should have iserr equal true once promise rejected', function() {
 
 			expect(a.iserr).to.equal.true;
+		});
+
+		it('should have pending equal false once promise rejected', function() {
+
+			expect(a.pending).to.be.false;
 		});
 
 		it('should update its children with iserr undefined when update() called with a promise', function() {
