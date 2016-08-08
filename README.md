@@ -81,9 +81,11 @@ var d = c.oncancel(cancelfn);        // Equivalent to c.on(null, null, cancelfn)
 Parameter | Description
 --------- | -----------
 `initval` | Initial value *or* parent Reactor.
-`updatefn` | Function to call when updated. Unless `undefined`, it will be called with `initval`, or its `value` property if a Reactor.
-`errorfn` | Function to call if `error()` method is called, or if an uncaught error is passed down from parent.
+`updatefn` | Function to call when `update()` is called, or if a value is passed down from parent.
+`errorfn` | Function to call if `error()` method is called, or if an error is passed down from parent.
 `cancelfn` | Function to call when `cancel()` method is called directly or by parent.
+
+`updatefn`, `errorfn`, and `cancelfn` must be `null`, `undefined`, or functions with signature `fn(val, oldval)`, where `val` is the argument to `update(val)`, `error(val)`, or `cancel(val)` as appropriate, and `oldval` is the previously-stored value.
 
 ### Reactor properties
 
@@ -113,14 +115,14 @@ Equivalent to on(null, errorfn, cancelfn).
 `oncancel(cancelfn)`  
 Equivalent to on(null, null, cancelfn).
 
-`update(val)`  
-Calls `updatefn` if present and stores returned value, stores `val` if no `updatefn` given or `updatefn` returns `undefined`, or stores error if `updatefn` throws; `update()` (or `error()` if `updatefn` throws) are then called on children. If `val` is `undefined`, `updatefn` will not be called. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
+`update(val, skipfn)`  
+Calls `updatefn` if present and stores returned value, stores `val` if `updatefn` not present or `updatefn` returns `undefined`, or stores error if `updatefn` throws. `update()` (or `error()` if `updatefn` throws) are then called on children. If `val` is `undefined` or `skipfn` is `true`, `updatefn` will not be called. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
 
-`error(val)`  
-Calls `errorfn` if present, stores returned value if `errorfn` returns, and updates children. If no `errorfn`, stores `val` and calls `error(val)` on children. If `val` is `undefined`, `errorfn` will not be called. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
+`error(val, skipfn)`  
+Calls `errorfn` if present and stores returned value, stores `val` if `errorfn` not present or `errorfn` returns `undefined`, or stores error if `errorfn` throws. `update()` (or `error()` if `errorfn` throws) are then called on children. If `val` is `undefined` or `skipfn` is `true`, `errorfn` will not be called. All Reactors in the tree will be locked while updating; additional calls to `update()` or `error()` during the update sequence will be ignored.
 
-`cancel(val)`  
-Calls `cancelfn` if present, stores returned value (or `val` if no `cancelfn` given), and cancels children. This does **not** lock Reactors in the tree, and thus may be called during the update sequence.
+`cancel(val, skipfn)`  
+Calls `cancelfn` if present and `skipfn` is not `true`, stores returned value (or `val` if `cancelfn` not present), and cancels children. This does **not** lock Reactors in the tree, and thus may be called during the update sequence.
 
 `attach(parent, skipset)`  
 Adds Reactor as child of parent; will not initialize with parent's current value if `skipset` is `true`.
