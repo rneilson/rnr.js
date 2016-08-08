@@ -231,29 +231,24 @@ class Reactor {
 		finalval = (finalval !== undefined) ? finalval : final;
 		this[_value] = finalval;
 		this[_iserr] = finalerr;
-
 		// Reject pending promise
 		if (this[_promise] !== null) {
 			this[_reject](new Error("Reactor cancelled"));
 		}
-
 		// Clear promise and associated resolve/reject functions
 		this[_promise] = null;
 		this[_resolve] = null;
 		this[_reject] = null;
-
 		// Clear funcs for GC (req'd?) and mark cancelled
 		this[_updfn] = null;
 		this[_errfn] = null;
 		this[_canfn] = null;
 		this[_active] = false;
 		this[_done] = true;
-
 		// Cascade to children
 		for (let child of this[_children]) {
 			child.cancel(finalval);
 		}
-
 		return this;
 	}
 
@@ -313,7 +308,7 @@ class Reactor {
 		if (this[_done]) {
 			return promiseme((res, rej) => {
 				rej(new Error("Reactor cancelled"));
-			});
+			}).then(onresolve, onreject);
 		}
 		// Create new base promise if not already present
 		if (this[_promise] === null) {
@@ -334,25 +329,31 @@ class Reactor {
 	// Returns promise resolved/rejected with current value, or chained to existing promise if pending
 	now (onresolve, onreject) {
 		var iserr = this[_iserr];
-		// Forward to then() if promise pending
-		if (iserr === undefined) {
+		var promise;
+		// Forward to then() if promise pending or reactor cancelled
+		if (iserr === undefined || this[_done]) {
 			return this.then(onresolve, onreject);
 		}
-		// Return resolved promise if not error
-		else if (iserr === false) {
-			return promiseme((res, rej) => {
+		// Create promise
+		promise = promiseme((res, rej) => {
+			// Return resolved promise if not error
+			if (iserr === false) {
 				res(this.value);
-			});
-		}
-		// Return rejected promise if error
-		else if (iserr === true) {
-			return promiseme((res, rej) => {
+			}
+			// Return rejected promise if error
+			else if (iserr === true) {
 				rej(this.value);
-			});
+			}
+			// Just in case
+			else {
+				throw new Error(`Invalid Reactor state: ${iserr}`);
+			}
+		});
+		// Add res/rej functions if given
+		if (onresolve || onreject) {
+			promise = promise.then(onresolve, onreject);
 		}
-		else {
-			throw new Error(`Invalid Reactor state: ${iserr}`);
-		}
+		return promise;
 	}
 
 	[_addchild] (child) {
@@ -431,7 +432,6 @@ class Reactor {
 				iserr = true;
 			}
 		}
-
 		// Post-fn cancelled check
 		if (!this[_done]) {
 			// Post-fn thenable check
@@ -463,7 +463,6 @@ class Reactor {
 			}
 			this[_value] = val;
 		}
-
 		// Cascade to children if present
 		if (this[_children].size > 0) {
 			for (let child of this[_children]) {
@@ -487,7 +486,6 @@ class Reactor {
 		else if (iserr === true && val !== undefined && this[_promise] === null) {
 			uncaughterr(val);
 		}
-
 		// Resolve/reject promise if pending
 		if (iserr !== undefined && this[_promise] !== null) {
 			if (iserr === false) {
@@ -501,7 +499,6 @@ class Reactor {
 			this[_resolve] = null;
 			this[_reject] = null;
 		}
-
 		return this;
 	}
 }
