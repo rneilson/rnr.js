@@ -1296,7 +1296,6 @@ describe('Reactor', function() {
 		}
 
 		var a, q, r;
-		// a = rnr.cr();
 
 		it('should return a promise', function() {
 
@@ -1512,6 +1511,94 @@ describe('Reactor', function() {
 			r = a.then();
 
 			return expect(r).to.be.rejectedWith(Error);
+		});
+	});
+
+	describe('now()', function() {
+
+		function promiser () {
+			var p = {};
+			p.promise = new Promise(function (resolve, reject) {
+				p.resolve = resolve;
+				p.reject = reject;
+			});
+			return p;
+		}
+
+		var a, q, r, status;
+
+		it('should return a promise', function() {
+
+			a = rnr.cr(0, function(x) {
+				if (typeof x === 'number') {
+					return x + 1;
+				}
+				q = promiser();
+				return q.promise;
+			});
+
+			expect(a.value).to.equal(1);
+
+			r = a.now();
+
+			expect(r).to.be.an.instanceof(Promise);
+		});
+
+		it('should resolve the promise with the current value if not an error', function() {
+			
+			return expect(r).to.eventually.equal(1);
+		});
+
+		it('should reject the promise with the current value if an error', function() {
+
+			a.error(-1);
+
+			r = a.now();
+
+			return expect(r).to.be.rejectedWith(-1);
+		});
+
+		it('should return a pending promise if Reactor awaiting a promise', function() {
+
+			status = undefined;
+
+			a.update(null);
+			r = a.now(function(x) {
+				status = true;
+				return x;
+			});
+
+			expect(a.pending).to.be.true;
+			expect(status).to.be.undefined;
+		});
+
+		it('should resolve the promise when the awaited promise is resolved', function() {
+
+			q.resolve(1);
+
+			return expect(r.then(function(x) {
+				expect(status).to.be.true;
+				return x;
+			})).to.eventually.equal(1);
+		});
+
+		it('should reject the promise when the awaited promise is rejected', function() {
+
+			a.update(null);
+			r = a.now(undefined, function(x) {
+				status = false;
+				return Promise.reject(x);
+			});
+
+			expect(a.value).to.equal(1);
+			expect(status).to.be.true;
+
+			q.reject(-1);
+
+			return expect(r.then(undefined, function(x) {
+				expect(status).to.be.false;
+				return Promise.reject(x);
+			})).to.be.rejectedWith(-1);
 		});
 	});
 });
