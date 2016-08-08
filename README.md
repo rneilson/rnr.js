@@ -131,6 +131,12 @@ Removes Reactor as child of `parent`; will call `cancel()` on parent if `autocan
 `clear(cancel, final)`  
 Removes all children from Reactor; will call `cancel(final)` on children if `cancel` is `true`.
 
+`then(onresolve, onreject)`  
+Returns a promise to be resolved or rejected on the next call to `update()` or `error()`, or when a pending thenable (passed to `update()`, or returned from `updatefn` or `errorfn`) is resolved or rejected. This promise will be pending until the Reactor's value changes; the current value is not promisified. Please note: calling `cancel()` will leave this promise in a pending state.
+
+`catch(onreject)`  
+Equivalent to `then(undefined, onreject)`.
+
 ### Reactor static methods
 
 `Reactor.uncaught(errfn)`  
