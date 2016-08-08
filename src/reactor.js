@@ -158,6 +158,13 @@ class Reactor {
 		return Array.from(this[_children]);
 	}
 
+	get pending () {
+		if (this[_iserr] === undefined) {
+			return true;
+		}
+		return false;
+	}
+
 	// Returns new reactor as child of this
 	on (updatefn, errorfn, cancelfn) {
 		if (this[_done]) {
@@ -230,17 +237,18 @@ class Reactor {
 		this[_resolve] = null;
 		this[_reject] = null;
 
-		// Cascade to children
-		for (let child of this[_children]) {
-			child.cancel(finalval);
-		}
-
 		// Clear funcs for GC (req'd?) and mark cancelled
 		this[_updfn] = null;
 		this[_errfn] = null;
 		this[_canfn] = null;
 		this[_active] = false;
 		this[_done] = true;
+
+		// Cascade to children
+		for (let child of this[_children]) {
+			child.cancel(finalval);
+		}
+
 		return this;
 	}
 
@@ -404,9 +412,11 @@ class Reactor {
 	}
 
 	[_set] (val, iserr) {
-		// Set given value
-		this[_value] = val;
 		this[_iserr] = iserr;
+		// Set value only if not pending
+		if (iserr !== undefined) {
+			this[_value] = val;
+		}
 
 		// Cascade to children if present
 		if (this[_children].size > 0) {
