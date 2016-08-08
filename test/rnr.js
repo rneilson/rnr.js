@@ -1496,5 +1496,22 @@ describe('Reactor', function() {
 
 			return expect(r).to.be.rejectedWith(1);
 		});
+
+		it('should reject the promise with an error if Reactor is cancelled afterward', function() {
+
+			r = a.then();
+			a.cancel();
+
+			return expect(r).to.be.rejectedWith(Error);
+		});
+
+		it('should return a rejected promise if Reactor is already cancelled', function() {
+
+			expect(a.done).to.be.true;
+
+			r = a.then();
+
+			return expect(r).to.be.rejectedWith(Error);
+		});
 	});
 });
