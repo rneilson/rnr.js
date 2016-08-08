@@ -1525,7 +1525,7 @@ describe('Reactor', function() {
 			return p;
 		}
 
-		var a, q, r, status;
+		var a, q, r, s, status;
 
 		it('should return a promise', function() {
 
@@ -1536,6 +1536,7 @@ describe('Reactor', function() {
 				q = promiser();
 				return q.promise;
 			});
+			status = undefined;
 
 			expect(a.value).to.equal(1);
 
@@ -1545,7 +1546,7 @@ describe('Reactor', function() {
 		});
 
 		it('should resolve the promise with the current value if not an error', function() {
-			
+
 			return expect(r).to.eventually.equal(1);
 		});
 
@@ -1553,9 +1554,39 @@ describe('Reactor', function() {
 
 			a.error(-1);
 
-			r = a.now();
+			s = a.now();
 
-			return expect(r).to.be.rejectedWith(-1);
+			return expect(s).to.be.rejectedWith(-1);
+		});
+
+		it('should properly chain onresolve/onreject if given', function() {
+
+			var status1, status2;
+
+			a.update(0);
+
+			r = a.now(function(x) {
+				status1 = true;
+				return x;
+			});
+
+			a.error(-1);
+
+			s = a.now(undefined, function(x) {
+				status2 = false;
+				return Promise.reject(x);
+			});
+
+			return expect(Promise.all([
+				r.then(function(x) {
+					expect(status1).to.be.true;
+					return x;
+				}),
+				s.then(undefined, function(x) {
+					expect(status2).to.be.false;
+					return x;
+				})
+			])).to.eventually.become([1, -1]);
 		});
 
 		it('should return a pending promise if Reactor awaiting a promise', function() {
@@ -1599,6 +1630,14 @@ describe('Reactor', function() {
 				expect(status).to.be.false;
 				return Promise.reject(x);
 			})).to.be.rejectedWith(-1);
+		});
+
+		it('should return a rejected promise if Reactor is already cancelled', function() {
+
+			a.cancel();
+			r = a.now();
+
+			expect(r).to.be.rejectedWith(Error);
 		});
 	});
 });
