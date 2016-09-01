@@ -1,4 +1,4 @@
-import { funcOrNull, isCallable, isThenable } from './utils.js';
+import { funcOrNull, isThenable } from './utils.js';
 
 /* Cascading-reactor defs & helpers */
 
@@ -132,7 +132,7 @@ class Reactor {
 
 	// Sets promise constructor/creator
 	static promiser (promfn) {
-		if (!isCallable(promfn)) {
+		if (typeof promfn !== 'function') {
 			throw new Error("Promise creator must be a function!");
 		}
 		promiseme = resfn;
