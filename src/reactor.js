@@ -190,7 +190,7 @@ class Reactor {
 		if (this[_isactive]()) {
 			if (isThenable(val)) {
 				// Update once thenable resolves/rejects
-				val.then(res => this.update(res), rej => this.error(rej));
+				val.then(res => this.update(res, false), rej => this.error(rej, false));
 				// Set pending until thenable resolves
 				return this[_set]();
 			}
@@ -407,11 +407,14 @@ class Reactor {
 		var valOrErr;
 
 		if (iserr === undefined) {
-			// Keep previous value
+			// Keep previous value (propagating pending state)
 			valOrErr = oldval;
 		}
-		else if (val === undefined || skipfn) {
+		else if ((skipfn === true) || (val === undefined && skipfn !== false)) {
 			// Set value directly, bypass functions
+			// Will happen when resolving thenable post-_updfn(), or when
+			// updating with explicit undefined, but not when a pending
+			// thenable resolves with undefined
 			valOrErr = val;
 		}
 		else {
