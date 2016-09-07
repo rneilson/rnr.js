@@ -169,6 +169,24 @@ class Reactor {
 		return new Reactor(updatefn, errorfn, cancelfn).attach(this);
 	}
 
+	// Returns reactor which only calls updatefn when input value changes
+	onchange (updatefn, errorfn, cancelfn) {
+		var lastval = undefined;
+		var lastres = undefined;
+		var updfn = funcOrNull(updatefn);
+
+		return this.on(updchange, errorfn, cancelfn);
+
+		function updchange (newval) {
+			if (lastval !== newval) {
+				lastval = newval;
+				lastres = (updfn !== null) ? updfn.call(this, newval, lastres) : newval;
+				return lastres;
+			}
+			return _hold;
+		}
+	}
+
 	onerror (errorfn, cancelfn) {
 		return this.on(null, errorfn, cancelfn)
 	}
