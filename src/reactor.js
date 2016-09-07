@@ -4,11 +4,12 @@ import { funcOrNull, isThenable } from './utils.js';
 
 // Symbols for private properties
 const _value = Symbol('_value');
+const _error = Symbol('_error');
+const _iserr = Symbol('_iserr');
 const _updfn = Symbol('_updfn');
 const _errfn = Symbol('_errfn');
 const _canfn = Symbol('_canfn');
 const _active = Symbol('_active');
-const _iserr = Symbol('_iserr');
 const _done = Symbol('_done');
 const _persist = Symbol('_persist');
 const _children = Symbol('_children');
@@ -52,6 +53,7 @@ class Reactor {
 		this[_canfn] = funcOrNull(cancelfn, 'cancelfn');
 		// Initial value/state
 		this[_value] = undefined;
+		this[_error] = undefined;
 		this[_iserr] = undefined;
 		// Start with empty child list
 		this[_children] = new Set();
@@ -135,6 +137,9 @@ class Reactor {
 	}
 
 	get value () {
+		if (this[_iserr]) {
+			return this[_error];
+		}
 		return this[_value];
 	}
 
@@ -172,16 +177,14 @@ class Reactor {
 	// Returns reactor which only calls updatefn when input value changes
 	onchange (updatefn, errorfn, cancelfn) {
 		var lastval = undefined;
-		var lastres = undefined;
 		var updfn = funcOrNull(updatefn);
 
 		return this.on(updchange, errorfn, cancelfn);
 
-		function updchange (newval) {
+		function updchange (newval, lastres) {
 			if (lastval !== newval) {
 				lastval = newval;
-				lastres = (updfn !== null) ? updfn.call(this, newval, lastres) : newval;
-				return lastres;
+				return (updfn !== null) ? updfn.call(this, newval, lastres) : newval;
 			}
 			return _hold;
 		}
@@ -236,17 +239,14 @@ class Reactor {
 		}
 		// If cancelfn is set, will be called with (final, value) before
 		// passing result downward
-		var finalval, finalerr;
 		try {
-			finalval = (!skipfn && this[_canfn] !== null) ? this[_canfn](final, this[_value]) : final;
-			finalerr = false;
+			this[_value] = (!skipfn && this[_canfn] !== null) ? this[_canfn](final, this[_value]) : final;
+			this[_iserr] = false;
 		}
 		catch (e) {
-			finalval = e;
-			finalerr = true;
+			this[_error] = e;
+			this[_iserr] = true;
 		}
-		this[_value] = finalval;
-		this[_iserr] = finalerr;
 		// Reject pending promise
 		if (this[_promise] !== null) {
 			this[_reject](new Error("Reactor cancelled"));
@@ -263,7 +263,7 @@ class Reactor {
 		this[_done] = true;
 		// Cascade to children
 		for (let child of this[_children]) {
-			child.cancel(finalval);
+			child.cancel(this.value);
 		}
 		return this;
 	}
@@ -420,17 +420,17 @@ class Reactor {
 
 	[_upd] (val, iserr, skipfn) {
 		this[_locked] = true;
-		var oldval = this[_value];
+		var lastres = this[_value];
 		var valOrErr;
 
 		// skipfn will set value directly, bypassing functions
 		try {
 			if (iserr === false) {
-				valOrErr = (!skipfn && this[_updfn] !== null) ? this[_updfn](val, oldval) : val;
+				valOrErr = (!skipfn && this[_updfn] !== null) ? this[_updfn](val, lastres) : val;
 			}
 			else if (iserr === true) {
 				if (!skipfn && this[_errfn] !== null) {
-					valOrErr = this[_errfn](val, oldval);
+					valOrErr = this[_errfn](val, lastres);
 					iserr = false;
 				}
 				else {
@@ -438,8 +438,8 @@ class Reactor {
 				}
 			}
 			else if (iserr === undefined) {
-				// Keep previous value (propagating pending state)
-				valOrErr = oldval;
+				// Keep previous result (propagating pending state)
+				valOrErr = lastres;
 			}
 		}
 		catch (e) {
@@ -469,12 +469,18 @@ class Reactor {
 
 	[_set] (val, iserr) {
 		this[_iserr] = iserr;
-		// Set value only if not pending
-		if (iserr !== undefined) {
-			if (iserr !== false && iserr !== true) {
-				throw new Error(`Invalid Reactor state: ${iserr}`);
-			}
+		if (iserr === false) {
+			// Set value, clear error
 			this[_value] = val;
+			this[_error] = undefined;
+		}
+		else if (iserr === true) {
+			// Set error, leave value in place
+			this[_error] = val;
+		}
+		else if (iserr !== undefined) {
+			// Shouldn't need, but just in case
+			throw new Error(`Invalid Reactor state: ${iserr}`);
 		}
 		// Cascade to children if present
 		if (this[_children].size > 0) {
