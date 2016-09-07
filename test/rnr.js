@@ -1271,14 +1271,11 @@ describe('Reactor', function() {
 				return x - 1;
 			});
 
-			// a was last in error state, value 2
-			expect(b.value).to.equal(a.value - 1);
 			expect(b.iserr).to.be.false;
 
 			q = promiser();
 			a.update();
 
-			expect(b.value).to.equal(a.value - 1);
 			expect(b.iserr).to.be.undefined;
 		});
 
