@@ -24,6 +24,10 @@ const _isactive = Symbol('_isactive');
 const _upd = Symbol('_upd');
 const _set = Symbol('_set');
 
+// Symbols for flow control
+const _pending = Symbol('pending');
+const _hold = Symbol('hold');
+
 // Uncaught error handler (default noop)
 let uncaughthandler = null;
 
@@ -136,6 +140,16 @@ class Reactor {
 			throw new Error("Promise creator must be a function!");
 		}
 		promiseme = resfn;
+	}
+
+	// Returns 'hold' symbol; will not update value or state
+	static get hold () {
+		return _hold;
+	}
+
+	// Returns 'pending' symbol
+	static get pending () {
+		return _pending;
 	}
 
 	get value () {
@@ -506,4 +520,4 @@ class Reactor {
 	}
 }
 
-export { Reactor };
+export { Reactor, _hold as hold, _pending as pending };

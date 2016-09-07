@@ -1,4 +1,4 @@
-import { Reactor } from './reactor.js';
+import { Reactor, hold, pending } from './reactor.js';
 
 /* Shortcut functions */
 
@@ -14,5 +14,5 @@ function crAll (...args) {
 	return Reactor.all(...args);
 }
 
-export { cr, crAny, crAll, Reactor };
+export { cr, crAny, crAll, Reactor, hold, pending };
 
