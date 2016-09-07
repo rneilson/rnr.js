@@ -44,45 +44,27 @@ let promiseme = function(resolver) {
 }
 
 class Reactor {
-	constructor(newval, updatefn, errorfn, cancelfn) {
+	constructor(updatefn, errorfn, cancelfn) {
 		// Params updatefn, errorfn and cancelfn are optional
 		// Must be functions if given, however
-
 		this[_updfn] = funcOrNull(updatefn, 'updatefn');
 		this[_errfn] = funcOrNull(errorfn, 'errorfn');
 		this[_canfn] = funcOrNull(cancelfn, 'cancelfn');
-
 		// Initial value/state
 		this[_value] = undefined;
-		this[_iserr] = false;
-
+		this[_iserr] = undefined;
 		// Start with empty child list
 		this[_children] = new Set();
-
 		// No initial promise
 		this[_promise] = null;
 		this[_resolve] = null;
 		this[_reject] = null;
-
 		// Lock during updates and error propagation
 		this[_locked] = false;
-
 		// Set active, default non-persistent
 		this[_active] = true;
 		this[_done] = false;
 		this[_persist] = false;
-
-		// If newval is another Reactor, set it as parent
-		if (newval instanceof Reactor) {
-			// Add this to parent's child set
-			newval[_addchild](this);
-			// Get initial value from parent
-			this[_upd](newval.value, newval.iserr);
-		}
-		else {
-			// Newval is standalone, no parent - use provided initial value
-			this[_upd](newval, false);
-		}
 	}
 
 	// Creates new Reactor with multiple parents, with value equal to last-set parent
@@ -103,7 +85,7 @@ class Reactor {
 	// Parents which are raw values will be included in output as constants
 	static all(...parents) {
 		var sources = [];
-		var newcr = new Reactor(undefined, () => {
+		var newcr = new Reactor(() => {
 			let arr = [];
 			for (let source of sources) {
 				arr.push(source.value);
@@ -125,7 +107,7 @@ class Reactor {
 			}
 		}
 		// Get initial values from parents
-		newcr.update(true);
+		newcr.update();
 		return newcr;
 	}
 
@@ -184,7 +166,7 @@ class Reactor {
 		if (this[_done]) {
 			throw new Error("Cannot cascade from cancelled");
 		}
-		return new Reactor(this, updatefn, errorfn, cancelfn);
+		return new Reactor(updatefn, errorfn, cancelfn).attach(this);
 	}
 
 	onerror (errorfn, cancelfn) {
@@ -208,7 +190,7 @@ class Reactor {
 			}
 			else if (isThenable(val)) {
 				// Update once thenable resolves/rejects
-				val.then(res => this.update(res, false), rej => this.error(rej, false));
+				val.then(res => this.update(res), rej => this.error(rej));
 				// Set pending (implicit) until thenable resolves
 				return this[_set]();
 			}
@@ -276,7 +258,7 @@ class Reactor {
 	}
 
 	// Attach this to new parent
-	// If skipset is true and parent is a Reactor, will skip setting value to parent's
+	// If skipset is true, will skip setting value to parent's
 	attach (parent, skipset) {
 		if (this[_done]) {
 			throw new Error("Cannot attach cancelled Reactor");
@@ -291,7 +273,7 @@ class Reactor {
 			// Set new parent, add this to new parent's child set, and recalculate value
 			parent[_addchild](this);
 			// Will invoke setter and thus cascade if appropriate
-			return skipset ? this : this[_upd](parent.value, parent.iserr);
+			return (skipset || parent[_iserr] === undefined) ? this : this[_upd](parent.value, parent.iserr);
 		}
 		// Throw if not reactor
 		throw new Error("Cannot attach to non-Reactor");
