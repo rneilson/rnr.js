@@ -405,26 +405,29 @@ class Reactor {
 		var oldval = this[_value];
 		var valOrErr;
 
-		if (iserr === undefined) {
-			// Keep previous value (propagating pending state)
-			valOrErr = oldval;
-		}
-		else {
-			// skipfn will set value directly, bypassing functions
-			try {
-				if (iserr === false) {
-					valOrErr = (!skipfn && this[_updfn] !== null) ? this[_updfn](val, oldval) : val;
-				}
-				else if (iserr === true) {
-					valOrErr = (!skipfn && this[_errfn] !== null) ? this[_errfn](val, oldval) : val;
+		// skipfn will set value directly, bypassing functions
+		try {
+			if (iserr === false) {
+				valOrErr = (!skipfn && this[_updfn] !== null) ? this[_updfn](val, oldval) : val;
+			}
+			else if (iserr === true) {
+				if (!skipfn && this[_errfn] !== null) {
+					valOrErr = this[_errfn](val, oldval);
 					iserr = false;
 				}
+				else {
+					valOrErr = val;
+				}
 			}
-			catch (e) {
-				// Set value to error, cascade
-				valOrErr = e;
-				iserr = true;
+			else if (iserr === undefined) {
+				// Keep previous value (propagating pending state)
+				valOrErr = oldval;
 			}
+		}
+		catch (e) {
+			// Set value to error, cascade
+			valOrErr = e;
+			iserr = true;
 		}
 		// Post-fn cancelled/hold check
 		if (!this[_done] && valOrErr !== _hold) {
