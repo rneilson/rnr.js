@@ -52,7 +52,7 @@ class Reactor {
 		this[_errfn] = funcOrNull(errorfn, 'errorfn');
 		this[_canfn] = funcOrNull(cancelfn, 'cancelfn');
 
-		// Initial value
+		// Initial value/state
 		this[_value] = undefined;
 		this[_iserr] = false;
 
@@ -198,14 +198,18 @@ class Reactor {
 	// Checks if any children are active, then updates or cancels accordingly
 	update (val, skipfn) {
 		// Return without modification if done or currently locked
-		if (this[_done] || this[_locked]) {
+		if (this[_done] || this[_locked] || val === _hold) {
 			return this;
 		}
-		if (this[_isactive]()) {
-			if (isThenable(val)) {
+		else if (this[_isactive]()) {
+			if (val === _pending) {
+				// Set pending (explicit)
+				return this[_set]();
+			}
+			else if (isThenable(val)) {
 				// Update once thenable resolves/rejects
 				val.then(res => this.update(res, false), rej => this.error(rej, false));
-				// Set pending until thenable resolves
+				// Set pending (implicit) until thenable resolves
 				return this[_set]();
 			}
 			return this[_upd](val, false, skipfn);
@@ -219,7 +223,7 @@ class Reactor {
 		if (this[_done] || this[_locked]) {
 			return this;
 		}
-		if (this[_isactive]()) {
+		else if (this[_isactive]()) {
 			return this[_upd](val, true, skipfn);
 		}
 		return this.cancel(val);
@@ -241,8 +245,6 @@ class Reactor {
 			finalval = e;
 			finalerr = true;
 		}
-		// Reset finalval to final if _canfn() returned undefined
-		finalval = (finalval !== undefined) ? finalval : final;
 		this[_value] = finalval;
 		this[_iserr] = finalerr;
 		// Reject pending promise
@@ -414,6 +416,7 @@ class Reactor {
 	// - we can cancel and remove inactive children
 	// - we can lock while calling _upd
 	// - isThenable() has already been called on input if req'd
+	// - input has already been checked for _hold and _pending
 
 	[_upd] (val, iserr, skipfn) {
 		this[_locked] = true;
@@ -424,24 +427,16 @@ class Reactor {
 			// Keep previous value (propagating pending state)
 			valOrErr = oldval;
 		}
-		else if ((skipfn === true) || (val === undefined && skipfn !== false)) {
-			// Set value directly, bypass functions
-			// Will happen when resolving thenable post-_updfn(), or when
-			// updating with explicit undefined, but not when a pending
-			// thenable resolves with undefined
-			valOrErr = val;
-		}
 		else {
+			// skipfn will set value directly, bypassing functions
 			try {
-				if (iserr === false && this[_updfn] !== null) {
-					valOrErr = this[_updfn](val, oldval);
+				if (iserr === false) {
+					valOrErr = (!skipfn && this[_updfn] !== null) ? this[_updfn](val, oldval) : val;
 				}
-				else if (iserr === true && this[_errfn] !== null) {
-					valOrErr = this[_errfn](val, oldval);
+				else if (iserr === true) {
+					valOrErr = (!skipfn && this[_errfn] !== null) ? this[_errfn](val, oldval) : val;
 					iserr = false;
 				}
-				// Set and pass along the raw value instead if _updfn/_errfn returns undefined
-				valOrErr = (valOrErr !== undefined) ? valOrErr : val;
 			}
 			catch (e) {
 				// Set value to error, cascade
@@ -449,23 +444,21 @@ class Reactor {
 				iserr = true;
 			}
 		}
-		// Post-fn cancelled check
-		if (!this[_done]) {
-			// Post-fn thenable check
-			if (isThenable(valOrErr)) {
+		// Post-fn cancelled/hold check
+		if (!this[_done] && valOrErr !== _hold) {
+			// Pending check (keeps old value)
+			if (valOrErr === _pending) {
+				iserr = undefined;
+			}
+			// Post-fn thenable check (keeps old value)
+			else if (isThenable(valOrErr)) {
 				// Update once thenable resolved/rejected (assume function already called)
 				valOrErr.then(res => this.update(res, true), rej => this.error(rej, true));
 				// Set error status to undefined while thenable pending
 				iserr = undefined;
-				// Keep old value
-				valOrErr = oldval;
 			}
-
-			// Only trigger cascade if value or error status changed and not cancelled
-			if (valOrErr !== oldval || this[_iserr] !== iserr) {
-				// Set and cascade new value
-				this[_set](valOrErr, iserr);
-			}
+			// Set and cascade new value/status
+			this[_set](valOrErr, iserr);
 		}
 		this[_locked] = false;
 		return this;
@@ -500,7 +493,7 @@ class Reactor {
 			}
 		}
 		// Forward to uncaught handler if no children (end of branch) and no pending promise
-		else if (iserr === true && val !== undefined && this[_promise] === null) {
+		else if (iserr === true && this[_promise] === null) {
 			uncaughterr(val);
 		}
 		// Resolve/reject promise if pending
