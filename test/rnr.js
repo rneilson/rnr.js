@@ -24,16 +24,14 @@ describe('Reactor', function() {
 			expect(a).to.be.an.instanceof(rnr.Reactor);
 		});
 
-		it('should have a value of undefined when no initial value given', function() {
+		it('should have a value of undefined after creation', function() {
 
 			expect(a.value).to.be.undefined;
 		});
 
-		it('should have the given initial value after creation', function() {
+		it('should be pending after creation', function() {
 
-			a = rnr.cr(1);
-
-			expect(a.value).to.equal(1);
+			expect(a.pending).to.be.true;
 		});
 
 		it('should be active after creation', function() {
@@ -44,11 +42,11 @@ describe('Reactor', function() {
 		it('should only take a function as param updatefn', function() {
 
 			var goodfn = function() {
-				rnr.cr(undefined, function(){});
+				rnr.cr(function(){});
 			};
 
 			var badfn = function() {
-				rnr.cr(undefined, 1);
+				rnr.cr(1);
 			};
 
 			expect(goodfn).to.not.throw(/must be a function/);
@@ -59,11 +57,11 @@ describe('Reactor', function() {
 		it('should only take a function as param cancelfn', function() {
 
 			var goodfn = function() {
-				rnr.cr(undefined, function(){}, function(){});
+				rnr.cr(function(){}, function(){});
 			};
 
 			var badfn = function() {
-				rnr.cr(undefined, function(){}, 1);
+				rnr.cr(function(){}, 1);
 			};
 
 			expect(goodfn).to.not.throw(/must be a function/);
@@ -100,9 +98,9 @@ describe('Reactor', function() {
 			expect(a.value).to.equal('a');
 		});
 
-		it('should not call updatefn when initial value is undefined', function() {
+		it('should not call updatefn when initially created', function() {
 
-			b = rnr.cr(undefined, function(x) {
+			b = rnr.cr(function(x) {
 				counter++;
 				return x + 1;
 			});
@@ -124,45 +122,107 @@ describe('Reactor', function() {
 			expect(b.value).to.equal(2);
 		});
 
-		it('should not call updatefn when the passed value is undefined', function() {
+		it('should not call updatefn when passed the symbol hold', function() {
 
 			var tmpcount = counter;
-			b.update(undefined);
+			b.update(rnr.hold);
 
 			expect(counter).to.equal(tmpcount);
 
 		});
 
-		it('should update with passed value if updatefn returns undefined', function() {
+		it('should update with undefined if updatefn returns undefined', function() {
 
-			c = rnr.cr(0, function() {
+			c = rnr.cr(function() {
 				counter++;
 			});
 			c.update(1);
 
-			expect(c.value).to.equal(1);
+			expect(c.value).to.be.undefined;
 		});
 
 		it('should call updatefn with given and previous values', function() {
 
 			var newvalue, oldvalue;
-			d = rnr.cr(0, function(newval, oldval) {
+			d = rnr.cr(function(newval, oldval) {
 				newvalue = newval;
 				oldvalue = oldval;
 				return newval;
-			});
+			}).update(0);
 			d.update(1);
 
 			expect(newvalue).to.equal(1);
 			expect(oldvalue).to.equal(0);
 		});
 
+		it('should keep its previous value when passed the symbol pending', function () {
+
+			var tmpvalue = a.value;
+			a.update(rnr.pending);
+
+			expect(a.value).to.equal(tmpvalue);
+		});
+
+		it('should set itself as pending when passed the symbol pending', function () {
+
+			expect(a.pending).to.be.true;
+		});
+
+		it('should set itself as pending with previous value when updatefn returns the symbol pending', function () {
+
+			a = rnr.cr(function(newval) {
+				if (newval === 1) {
+					return rnr.pending;
+				}
+				return newval;
+			}).update(0);
+
+			expect(a.pending).to.be.false;
+			expect(a.value).to.equal(0);
+
+			a.update(1);
+
+			expect(a.pending).to.be.true;
+			expect(a.value).to.equal(0);
+		});
+
+		it('should have the value thrown if updatefn throws', function() {
+
+			a = rnr.cr(function(x) {
+				if (x === 1) {
+					throw 'updatefn';
+				}
+			});
+			a.update(1);
+
+			expect(a.value).to.equal('updatefn');
+		});
+
+		it('should have iserr property true if updatefn throws', function() {
+
+			expect(a.iserr).to.be.true;
+		});
+
+		it('should not call its own errorfn when updatefn throws if errorfn given', function() {
+
+			counter = 0;
+			a = rnr.cr(function(x) {
+				if (x === 1) {
+					throw new Error('updatefn');
+				}
+			}, function(e) {
+				counter++;
+			});
+			a.update(1);
+
+			expect(counter).to.equal(0);
+		});
 	});
 
 	describe('on()', function() {
 
 		var counter = 0;
-		var a = rnr.cr(1);
+		var a = rnr.cr();
 		var b, c, d;
 
 		it('should return a new Reactor instance', function() {
@@ -171,6 +231,16 @@ describe('Reactor', function() {
 
 			expect(b).to.be.an.instanceof(rnr.Reactor);
 			expect(b).to.not.equal(a);
+		});
+
+		it('should have its parent\'s pending status when created', function() {
+
+			expect(b.pending).to.equal(a.pending);
+		});
+
+		it('should have a value of undefined if parent is pending when created', function() {
+
+			expect(b.value).to.be.undefined;
 		});
 
 		it('should add the child to its parent\'s child set', function() {
@@ -191,32 +261,24 @@ describe('Reactor', function() {
 			expect(children).to.include.members([b, c]);
 		});
 
-		it('should have its parent\'s current value if no updatefn given', function() {
+		it('should have its parent\'s value when parent is updated if no updatefn given', function() {
+
+			a.update(1);
 
 			expect(b.value).to.equal(a.value);
 		});
 
-		it('should have the result of updatefn called with its parent\'s current value', function () {
+		it('should have the result of updatefn called with its parent\'s value when parent is updated', function () {
 
 			expect(c.value).to.equal(a.value + 1);
 		});
 
-		it('should be updated when its parent is updated to a new value', function() {
+		it('should be updated with its parent\'s value if parent not pending when child created', function() {
 
-			var tmpvalue = c.value;
-			a.update(2);
+			var f = rnr.cr().update(1);
+			var g = f.on();
 
-			expect(c.value).to.not.equal(tmpvalue);
-			expect(c.value).to.equal(a.value + 1);
-		});
-
-		it('should be updated only if its parent\'s new value differs from previous', function() {
-
-			var tmpcount = counter;
-			var tmpvalue = a.value;
-			a.update(tmpvalue);
-
-			expect(counter).to.equal(tmpcount);
+			expect(g.value).to.equal(f.value);
 		});
 
 		it('should add another child level when called on a child', function() {
@@ -228,7 +290,7 @@ describe('Reactor', function() {
 			expect(c.children).to.include.members([d]);
 		});
 
-		it('should update its child\'s value when its parent updates it', function() {
+		it('should propagate updated values when the top-level parent is updated', function() {
 
 			a.update(1);
 
@@ -236,55 +298,25 @@ describe('Reactor', function() {
 			expect(d.value).to.equal(4);
 		});
 
-		it('should have the value thrown if updatefn throws', function() {
+		it('should pass the error to its children if updatefn throws', function() {
 
-			a = rnr.cr(0, function(x) {
+			counter = 0;
+			a = rnr.cr(function(x) {
 				if (x === 1) {
 					throw 'updatefn';
 				}
 			});
+			b = a.on();
 			a.update(1);
 
-			expect(a.value).to.equal('updatefn');
-		});
-
-		it('should have iserr property true if updatefn throws', function() {
-
-			expect(a.iserr).to.be.true;
-		});
-
-		it('should not call its own errorfn when updatefn throws if errorfn given', function() {
-
-			counter = 0;
-			b = rnr.cr(0, function(x) {
-				if (x === 1) {
-					throw new Error('updatefn');
-				}
-			}, function(e) {
-				counter++;
-			});
-			b.update(1);
-
-			expect(counter).to.equal(0);
-		});
-
-		it('should pass the error to its children if no errorfn given', function() {
-
-			counter = 0;
-			a.update(0);
-			b = a.on(null, function(e) {
-				counter++;
-				return e;
-			});
-			a.update(1);
-
-			expect(counter).to.equal(1);
 			expect(b.value).to.equal('updatefn');
+			expect(b.iserr).to.be.true;
 		});
 
 		it('should set the value to the result of errorfn if its parent\'s updatefn throws', function() {
 
 			a.update(0);
+			b.cancel();
 			b = a.on(null, function(e) {
 				return 2;
 			});
@@ -301,6 +333,7 @@ describe('Reactor', function() {
 		it('should pass the value returned from errorfn to its children', function() {
 
 			a.update(0);
+			b.cancel();
 			b = a.on(null, function(e) {
 				return 2;
 			});
@@ -312,7 +345,7 @@ describe('Reactor', function() {
 
 		it('should call uncaught handler if child\'s errorfn re-throws and is not caught', function() {
 
-			a = rnr.cr(0, function(x) {
+			a = rnr.cr(function(x) {
 				if (x === 1) {
 					throw new Error('updatefn');
 				}
@@ -328,7 +361,7 @@ describe('Reactor', function() {
 
 	describe('onerror()', function() {
 
-		var a = rnr.cr(0);
+		var a = rnr.cr();
 		var b, c, d;
 
 		it('should return a new Reactor instance', function() {
@@ -361,7 +394,7 @@ describe('Reactor', function() {
 
 		it('should call errorfn if parent passes error', function() {
 			var counter = 0;
-			a = rnr.cr(0, function(x) {
+			a = rnr.cr(function(x) {
 				if (x === 1) {
 					throw new Error('updatefn');
 				}
@@ -390,10 +423,7 @@ describe('Reactor', function() {
 
 		it('should have the given value if no errorfn', function() {
 
-			a = rnr.cr(0);
-
-			expect(a.value).to.equal(0);
-
+			a = rnr.cr();
 			a.error(1);
 
 			expect(a.value).to.equal(1);
@@ -407,7 +437,7 @@ describe('Reactor', function() {
 		it('should call errorfn when error() called', function() {
 
 			var counter = 0;
-			a = rnr.cr(0, null, function(e) {
+			a = rnr.cr(null, function(e) {
 				counter++;
 			});
 			a.error(1);
@@ -418,11 +448,11 @@ describe('Reactor', function() {
 		it('should call errorfn with given and previous values', function() {
 
 			var newvalue, oldvalue;
-			a = rnr.cr(0, null, function(newval, oldval) {
+			a = rnr.cr(null, function(newval, oldval) {
 				newvalue = newval;
 				oldvalue = oldval;
 				return newval;
-			});
+			}).update(0);
 			a.error(1);
 
 			expect(newvalue).to.equal(1);
@@ -431,7 +461,7 @@ describe('Reactor', function() {
 
 		it('should update the value to the output of errorfn', function() {
 
-			a = rnr.cr(0, null, function(x) {
+			a = rnr.cr(null, function(x) {
 				return x + 1;
 			});
 			a.error(1);
@@ -446,7 +476,7 @@ describe('Reactor', function() {
 
 		it('should have iserr equal true if errorfn throws', function() {
 
-			a = rnr.cr(undefined, null, function(x) {
+			a = rnr.cr(null, function(x) {
 				throw x + 1;
 			});
 			a.error(1);
@@ -457,7 +487,7 @@ describe('Reactor', function() {
 
 		it('should pass the value returned by errorfn to its children', function() {
 
-			a = rnr.cr(0, null, function(x) {
+			a = rnr.cr(null, function(x) {
 				return x + 1;
 			});
 			var b = a.on();
@@ -469,7 +499,7 @@ describe('Reactor', function() {
 		it('should call its childrens\' _err() if no errorfn', function() {
 
 			var counter = 0;
-			a = rnr.cr(0);
+			a = rnr.cr();
 			var b = a.onerror(function(e) {
 				counter++;
 			});
@@ -481,11 +511,12 @@ describe('Reactor', function() {
 		it('should call its childrens\' _err() if errorfn throws', function() {
 
 			var counter = 0;
-			a = rnr.cr(undefined, null, function(x) {
+			a = rnr.cr(null, function(x) {
 				throw x + 1;
 			});
 			var b = a.onerror(function(e) {
 				counter++;
+				return e;
 			});
 			a.error(1);
 
@@ -496,7 +527,7 @@ describe('Reactor', function() {
 
 		it('should call uncaught handler if no errorfn in it or its or children', function() {
 
-			a = rnr.cr(0);
+			a = rnr.cr();
 			var b = a.on();
 
 			a.error(1);
@@ -521,7 +552,7 @@ describe('Reactor', function() {
 
 		it('should have the given final value when cancelled', function() {
 
-			var a = rnr.cr(0);
+			var a = rnr.cr();
 			a.cancel(1);
 
 			expect(a.value).to.equal(1);
@@ -530,7 +561,7 @@ describe('Reactor', function() {
 		it('should call cancelfn when cancelled', function() {
 
 			var counter = 0;
-			var a = rnr.cr(0, null, null, function() {
+			var a = rnr.cr(null, null, function() {
 				counter++;
 			});
 			a.cancel();
@@ -541,7 +572,7 @@ describe('Reactor', function() {
 		it('should not call updatefn when cancelled directly', function() {
 
 			var count1 = 0;
-			var a = rnr.cr(0, function() {
+			var a = rnr.cr(function() {
 				count1++;
 			});
 			var count2 = count1;
@@ -553,10 +584,10 @@ describe('Reactor', function() {
 		it('should call cancelfn with finalval and oldval', function() {
 
 			var prevval, currval;
-			var a = rnr.cr(0, null, null, function(final, old) {
+			var a = rnr.cr(null, null, function(final, old) {
 				currval = final;
 				prevval = old;
-			});
+			}).update(0);
 			a.cancel(1);
 
 			expect(prevval).to.equal(0);
@@ -587,7 +618,7 @@ describe('Reactor', function() {
 
 		it('should pass the final value to its children if no cancelfn given', function() {
 
-			var a = rnr.cr(0);
+			var a = rnr.cr();
 			var b = a.on();
 			var c = b.on();
 			a.cancel(1);
@@ -598,7 +629,7 @@ describe('Reactor', function() {
 
 		it('should pass the result of cancelfn to its children when cancelled', function() {
 
-			var a = rnr.cr(0, null, null, function(x) {
+			var a = rnr.cr(null, null, function(x) {
 				return x + 1;
 			});
 			var b = a.on();
@@ -623,7 +654,7 @@ describe('Reactor', function() {
 
 		it('should autocancel its children when update() called if their children are all cancelled', function() {
 
-			var a = rnr.cr(0);
+			var a = rnr.cr();
 			var b = a.on();
 			var c = b.on();
 			c.cancel();
@@ -636,7 +667,7 @@ describe('Reactor', function() {
 		it('should call cancelfn with the value passed to update() if autocancelling', function() {
 
 			var final = 0;
-			var a = rnr.cr(0, null, null, function(x) {
+			var a = rnr.cr(null, null, function(x) {
 				final = x;
 			});
 			var b = a.on();
@@ -674,7 +705,7 @@ describe('Reactor', function() {
 
 	describe('oncancel()', function() {
 
-		var a = rnr.cr(0);
+		var a = rnr.cr();
 		var b, c, d;
 
 		it('should return a new Reactor instance', function() {
@@ -725,7 +756,7 @@ describe('Reactor', function() {
 		var a, b, c;
 
 		beforeEach(function() {
-			a = rnr.cr(0);
+			a = rnr.cr();
 		});
 
 		it('should return the same object', function() {
@@ -810,7 +841,7 @@ describe('Reactor', function() {
 
 		it('should throw if arg is not a Reactor', function() {
 
-			var a = rnr.cr(0);
+			var a = rnr.cr();
 
 			expect(function() {
 				a.attach(1);
@@ -826,10 +857,10 @@ describe('Reactor', function() {
 			expect(a.children).to.include.members([b]);
 		});
 
-		it('should set initial value to new parent\'s value', function() {
+		it('should set initial value to new parent\'s value if parent not pending', function() {
 
-			var a = rnr.cr(1);
-			var b = rnr.cr(0);
+			var a = rnr.cr().update(1);
+			var b = rnr.cr();
 			b.attach(a);
 
 			expect(b.value).to.equal(1);
@@ -837,8 +868,8 @@ describe('Reactor', function() {
 
 		it('should not set initial value to new parent\'s value when skipset arg true', function() {
 
-			var a = rnr.cr(1);
-			var b = rnr.cr(0);
+			var a = rnr.cr().update(1);
+			var b = rnr.cr().update(0);
 			b.attach(a, true);
 
 			expect(b.value).to.equal(0);
@@ -846,8 +877,8 @@ describe('Reactor', function() {
 
 		it('should return the same object', function() {
 
-			var a = rnr.cr(1);
-			var b = rnr.cr(0);
+			var a = rnr.cr().update(1);
+			var b = rnr.cr().update(0);
 			var c = b.attach(a);
 
 			expect(c).to.equal(b);
@@ -855,8 +886,8 @@ describe('Reactor', function() {
 
 		it('should add multiple parents if called multiple times', function() {
 
-			var a = rnr.cr(1);
-			var b = rnr.cr(2);
+			var a = rnr.cr().update(1);
+			var b = rnr.cr().update(2);
 			var c = rnr.cr();
 
 			c.attach(a);
@@ -974,8 +1005,8 @@ describe('Reactor', function() {
 	describe('crAny()', function() {
 
 		var a, b, c;
-		a = rnr.cr(1);
-		b = rnr.cr(2);
+		a = rnr.cr().update(1);
+		b = rnr.cr().update(2);
 
 		it('should return a new Reactor', function() {
 
@@ -1010,8 +1041,8 @@ describe('Reactor', function() {
 	describe('crAll()', function() {
 
 		var a, b, c;
-		a = rnr.cr(1);
-		b = rnr.cr(2);
+		a = rnr.cr().update(1);
+		b = rnr.cr().update(2);
 
 		it('should return a new Reactor', function() {
 
@@ -1031,7 +1062,7 @@ describe('Reactor', function() {
 			expect(c.value).to.eql([1, 2]);
 		});
 
-		it('should update when any parent set', function() {
+		it('should update when any parent is updated', function() {
 
 			a.update(3);
 
@@ -1060,12 +1091,12 @@ describe('Reactor', function() {
 
 			counter = 0;
 
-			a = rnr.cr(0, function(x, y) {
+			a = rnr.cr(function(x, y) {
 				newval = x;
 				oldval = y;
 				counter++;
 				return x;
-			});
+			}).update(0);
 
 			expect(a.value).to.equal(0);
 			expect(a.iserr).to.be.false;
@@ -1188,17 +1219,17 @@ describe('Reactor', function() {
 			})).to.eventually.equal(2);
 		});
 
-		it('should have value and iserr undefined when its updatefn returns a pending promise', function() {
+		it('should have iserr undefined when its updatefn returns a pending promise', function() {
 
 			q = promiser();
-			a = rnr.cr(undefined, function() {
+			a = rnr.cr(function() {
 				return q.promise;
 			});
 
 			expect(a.value).to.be.undefined;
-			expect(a.iserr).to.be.false;
+			expect(a.iserr).to.be.undefined;
 
-			a.update(0);
+			a.update();
 
 			expect(a.value).to.be.undefined;
 			expect(a.iserr).to.be.undefined;
@@ -1219,7 +1250,7 @@ describe('Reactor', function() {
 			var tmp = a.value;
 
 			q = promiser();
-			a.update(0);
+			a.update();
 
 			expect(a.value).to.equal(tmp);
 			expect(a.iserr).to.be.undefined;
@@ -1234,44 +1265,39 @@ describe('Reactor', function() {
 
 		it('should set its childrens\' iserr to undefined when its updatefn returns a pending promise', function() {
 
-			a.update();
-
-			expect(a.value).to.be.undefined;
-			expect(a.iserr).to.be.false;
-
 			b = a.on(function(x) {
 				return x + 1;
 			}, function(x) {
 				return x - 1;
 			});
 
-			expect(b.value).to.be.undefined;
+			// a was last in error state, value 2
+			expect(b.value).to.equal(a.value - 1);
 			expect(b.iserr).to.be.false;
 
 			q = promiser();
-			a.update(0);
+			a.update();
 
-			expect(b.value).to.be.undefined;
+			expect(b.value).to.equal(a.value - 1);
 			expect(b.iserr).to.be.undefined;
 		});
 
 		it('should call its childrens\' updatefn once its pending promise is resolved', function() {
 
-			q.resolve(2);
+			q.resolve(1);
 			return expect(q.promise.then(function(x) {
-				expect(a.value).to.equal(2);
+				expect(a.value).to.equal(1);
 				expect(a.iserr).to.be.false;
-				expect(b.value).to.equal(3);
+				expect(b.value).to.equal(2);
 				expect(b.iserr).to.be.false;
 				return x;
-			})).to.eventually.equal(2);
+			})).to.eventually.equal(1);
 		});
 
 		it('should call its childrens\' errorfn once its pending promise is rejected', function() {
 
-			a.update();
 			q = promiser();
-			a.update(0);
+			a.update();
 
 			q.reject(2);
 			return expect(q.promise.then(undefined, function(x) {
@@ -1323,7 +1349,7 @@ describe('Reactor', function() {
 
 		it('should resolve the promise with the output of updatefn', function () {
 
-			a = rnr.cr(undefined,
+			a = rnr.cr(
 				function(x) {
 					if (x === 0) {
 						throw -1;
@@ -1420,7 +1446,7 @@ describe('Reactor', function() {
 
 			var pending = true;
 
-			a = rnr.cr(undefined, function() {
+			a = rnr.cr(function() {
 				q = promiser();
 				return q.promise;
 			}, function() {
@@ -1435,7 +1461,7 @@ describe('Reactor', function() {
 
 			expect(pending).to.be.true;
 
-			a.update(0);
+			a.update();
 
 			expect(q.promise).to.be.instanceof(Promise);
 			return expect(Promise.resolve().then(function() {
@@ -1453,7 +1479,7 @@ describe('Reactor', function() {
 		it('should reject the promise once updatefn\'s promise is rejected', function() {
 
 			r = a.then();
-			a.update(0);
+			a.update();
 
 			q.reject(1);
 
@@ -1471,7 +1497,7 @@ describe('Reactor', function() {
 
 			expect(pending).to.be.true;
 
-			a.error(0);
+			a.error();
 
 			expect(q.promise).to.be.instanceof(Promise);
 			return expect(Promise.resolve().then(function() {
@@ -1489,7 +1515,7 @@ describe('Reactor', function() {
 		it('should reject the promise once errorfn\'s promise is rejected', function() {
 
 			r = a.then();
-			a.error(0);
+			a.error();
 
 			q.reject(1);
 
@@ -1529,14 +1555,13 @@ describe('Reactor', function() {
 
 		it('should return a promise', function() {
 
-			a = rnr.cr(0, function(x) {
+			a = rnr.cr(function(x) {
 				if (typeof x === 'number') {
 					return x + 1;
 				}
 				q = promiser();
 				return q.promise;
-			});
-			status = undefined;
+			}).update(0);
 
 			expect(a.value).to.equal(1);
 
